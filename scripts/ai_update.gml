@@ -1,7 +1,9 @@
 load_some_attack_data()
 
-xdist = abs(ai_target.x - x);
-ydist = abs(ai_target.y - y);
+xdisp = ai_target.x - x
+ydisp = ai_target.y - y
+xdist = abs(xdisp);
+ydist = abs(ydisp);
 
 hold_neutral()
 
@@ -14,9 +16,6 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
         press_down()
 	}
 }
-
-
-
 
 
 #region LEARNING
@@ -43,6 +42,8 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 		
 		// if(learning_frame > 15) currently_learning = false;
 		learning_frame++; exit;
+	} else {
+		currently_learning = false
 	}
 	/*else {
 		if(learning_frame != 69) {
@@ -54,41 +55,47 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 	}*/
 	
 
-#define attack_hit_timing(attack_obj, attacker, target, precise)
-	var fastest_hit = 9999, highest_priority = -1;
-	for(var incrementeroo = 0; incrementeroo < attack_obj.hitboxes_count; incrementeroo++;) {
-		var this_hitbox = attack_obj.hitboxes_array[incrementeroo];
+#define find_contacting_hitbox(this_attack, attacker, target, precise)
+	if(target.object_index == oPlayer || target.object_index == oTestPlayer) target = target.hurtboxID;
+	var fastest_hit = 9999, highest_priority = -1, contacting_hitbox = noone;
+	for(var incrementeroo = 0; incrementeroo < this_attack.hitboxes_count; incrementeroo++;) {
+		var this_hitbox = this_attack.hitboxes_array[incrementeroo];
+		// if(attacker.state_timer > this_hitbox.end_frame) continue;
 		
 		var is_viable_hit = false, time_until_hit = this_hitbox.frame - attacker.state_timer - 1;
 		
+		var attacker_projected_pos = get_my_projected_pos(time_until_hit);
+		
 		// var attacker_projected_pos = get_projected_pos(attacker, time_until_hit, attacker.gravity_speed, attacker.max_fall);
-		var hit_x = attacker.x + attacker.hsp * time_until_hit + this_hitbox.xpos * spr_dir;
-		var hit_y = attacker.y + attacker.vsp * time_until_hit + this_hitbox.ypos;
-		var half_w = this_hitbox.width / 2 * 1.15, half_h = this_hitbox.height / 2 * 1.15;
+		var hit_x = attacker_projected_pos[0] + this_hitbox.xpos * spr_dir;
+		var hit_y = attacker_projected_pos[1] + this_hitbox.ypos;
+		var half_w = this_hitbox.radius_x * this_attack.paranoia, half_h = this_hitbox.radius_x * this_attack.paranoia;
 		
 		
-		if(fastest_hit > time_until_hit)
-			is_viable_hit = true; //this is the fastest hitbox so far
-		else if(fastest_hit == time_until_hit && highest_priority < this_hitbox.priority)
-			is_viable_hit = true; //this has higher priority than the fastest & occurs on the same frame
+		//If the currently recorded hit has higher priority and is either faster or equal in speed, this one doesn't matter
+		if(highest_priority >= this_hitbox.priority && fastest_hit <= time_until_hit) exit;
 		
-		if(is_viable_hit) {
-			if(this_hitbox.is_rectangle) {
-				if(collision_rectangle(hit_x - half_w, hit_y - half_h, hit_x + half_w, hit_y + half_h, target, precise, false)) {
-					highest_priority = this_hitbox.priority;
-					fastest_hit = time_until_hit;
-				}
+		//If this hitbox's bounding box isn't right, this one doesn't matter
+		// var target_half_w = target.sprite_width * 0.5, target_half_h = target.sprite_height * 0.5;
+		// if(precise && ((hit_x - half_w < target.x + target_half_w) xor (hit_x + half_w > target.x - target_half_w)))
+		// 	continue;
+		
+		if(this_hitbox.is_rectangle) {
+			if(collision_rectangle(hit_x - half_w, hit_y - half_h, hit_x + half_w, hit_y + half_h, target, precise, false)) {
+				highest_priority = this_hitbox.priority;
+				fastest_hit = time_until_hit;
+				contacting_hitbox = this_hitbox;
 			}
-			else {
-				if(collision_ellipse(hit_x - half_w, hit_y - half_h, hit_x + half_w, hit_y + half_h, target, precise, false)) {
-					highest_priority = this_hitbox.priority;
-					fastest_hit = time_until_hit;
-				}
+		}
+		else {
+			if(collision_ellipse(hit_x - half_w, hit_y - half_h, hit_x + half_w, hit_y + half_h, target, precise, false)) {
+				highest_priority = this_hitbox.priority;
+				fastest_hit = time_until_hit;
+				contacting_hitbox = this_hitbox;
 			}
 		}
 	}
-	// print(fastest_hit);
-	return(fastest_hit == 9999?undefined:fastest_hit);
+	return(contacting_hitbox);
 
 // #define get_projected_pos(target, time, grav, frict)
 // 	return([target.x, target.y]);
@@ -100,7 +107,7 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 	switch(learning_phase) {
 		case "attacks":
 			//Study whatever has been assigned to us this lesson
-			ai_thoughts = `Learning all about player ${study_player_num} ${get_attack_name(study_attack_index)}`; // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found
+			ai_thoughts = `Learning all about player ${study_player_num}s ${get_attack_name(study_attack_index)}`; // ERROR: No code injection match found
 			comprehend_attack(player_ids[study_player_num], study_attack_index);
 			
 			//Figure out what we'll study next lesson
@@ -118,7 +125,7 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 		break;
 		case "options":
 			//Study whatever has been assigned to us this lesson
-			ai_thoughts = `Learning all about player ${study_player_num} ${study_option_type}`; // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found
+			ai_thoughts = `Learning all about player ${study_player_num}s ${study_option_type}`; // ERROR: No code injection match found
 			switch(study_option_type) {
 				case "jump":
 					known_options[study_player_num].jump = {
@@ -191,6 +198,8 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 		other.known_attacks[@attacker.player][@study_index] = {
 			name: get_attack_name(study_index),
 			category: get_attack_value(study_index, AG_CATEGORY),
+			paranoia: 1.1, //multiplier to the size of predicted hitboxes; doesn't increase naturally yet
+			parry_reward_mult: 1.0,
 			hitboxes_array: [],
 			hitboxes_count: 0,
 			max_damage: 0,
@@ -198,15 +207,24 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 			last_active_frame: 0
 		};
 		
+		var windows_count = get_attack_value(study_index, AG_NUM_WINDOWS);
 		//Prepare hitboxes array
-		var saved_count = 0, analyze_hit_index = 1, goal_hit_index = 1 + get_num_hitboxes(study_index);
-		while(saved_count < goal_hit_index - 1 && analyze_hit_index <= goal_hit_index + 3) {
+		var saved_count = 0, valid_count = 0, analyze_hit_index = 1, goal_hit_index = 1 + get_num_hitboxes(study_index);
+		while(valid_count < goal_hit_index - 1 && analyze_hit_index <= goal_hit_index + 3) {
 			//We assume that if we hit 4 nonexistent hitboxes in a row, the programmer is just a goof who lied about how many hitboxes they have
 			if(get_hitbox_value(study_index, analyze_hit_index, HG_HITBOX_TYPE) == 0) {
 				//This hitbox doesn't exist
 				analyze_hit_index++; continue;
 			}
 			
+			//Hitboxes that have negative window values aren't included
+			if(get_hitbox_value(study_index, analyze_hit_index, HG_WINDOW) < 0
+			|| get_hitbox_value(study_index, analyze_hit_index, HG_WINDOW) > windows_count) {
+				//This hitbox doesn't spawn normally
+				analyze_hit_index++; valid_count++; continue;
+			}
+			
+			//Determine the starting frame
 			var start_frame = get_hitbox_value(study_index, analyze_hit_index, HG_WINDOW_CREATION_FRAME);
 			var process_window = get_hitbox_value(study_index, analyze_hit_index, HG_WINDOW) - 1;
 			while(process_window > 0) {
@@ -214,19 +232,27 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 				process_window--;
 			}
 			
+			//Check if it can be charged
+			var charge_window = get_attack_value(study_index, AG_STRONG_CHARGE_WINDOW);
+			var charge_window_prior = charge_window != 0 && charge_window < get_hitbox_value(study_index, analyze_hit_index, HG_WINDOW);
+			
 			array_push(other.known_attacks[@attacker.player][@study_index].hitboxes_array, {
 				damage: get_hitbox_value(study_index, analyze_hit_index, HG_DAMAGE),
 				priority: get_hitbox_value(study_index, analyze_hit_index, HG_PRIORITY),
 				is_rectangle: get_hitbox_value(study_index, analyze_hit_index, HG_SHAPE) != 0,
-				width: get_hitbox_value(study_index, analyze_hit_index, HG_WIDTH),
-				height: get_hitbox_value(study_index, analyze_hit_index, HG_HEIGHT),
+				radius_x: 0.5 * get_hitbox_value(study_index, analyze_hit_index, HG_WIDTH),
+				radius_y: 0.5 * get_hitbox_value(study_index, analyze_hit_index, HG_HEIGHT),
 				xpos: get_hitbox_value(study_index, analyze_hit_index, HG_HITBOX_X),
 				ypos: get_hitbox_value(study_index, analyze_hit_index, HG_HITBOX_Y),
 				frame: start_frame,
-				end_frame: start_frame + get_hitbox_value(study_index, analyze_hit_index, HG_LIFETIME)
+				end_frame: start_frame + get_hitbox_value(study_index, analyze_hit_index, HG_LIFETIME),
+				can_be_charged: charge_window_prior
 			});
-			saved_count++; analyze_hit_index++;
+			
+			
+			saved_count++; valid_count++; analyze_hit_index++;
 		}
+		// print(other.known_attacks[attacker.player][study_index].hitboxes_array[1].damage);
 		
 		//Prepare hitbox-derived details
 		other.known_attacks[@attacker.player][@study_index].hitboxes_count = saved_count;
@@ -235,21 +261,125 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 	
 	knows_attack[@attacker.player][@study_index] = true;
 
+#define get_my_projected_pos(time)
+	//Assign friction and gravity
+	switch(state) {
+		case PS_ATTACK_AIR:
+			var frict = "attacking";
+			var grav = "attacking";
+			
+		break;
+		case PS_ATTACK_GROUND:
+			var frict = "attacking";
+			var grav = 0;
+		break;
+		case PS_HITSTUN:
+			var frict = air_friction;
+			var grav = hitstun_grav;
+		break;
+		case PS_WAVELAND:
+			var frict = wave_friction;
+			var grav = 0;
+			var remaining_waveland = wave_land_time - state_timer;
+		break;
+		case PS_WALK: case PS_DASH: case PS_DASH_START:
+			var frict = 0, grav = 0;
+		break;
+		case PS_JUMPSQUAT:
+			var frict = ground_friction, grav = 0;
+		break;
+		default:
+			var frict = free?air_friction:ground_friction;
+			var grav = free?gravity_speed:0;
+		break;
+	}
+	
+	//Complex friction and gravity
+	if(frict == "attacking") {
+		if(free) {
+			if(get_window_value(attack, window, AG_WINDOW_HSPEED_TYPE) == 1)
+				frict = 0;
+			else if(get_attack_value(attack, AG_WINDOW_CUSTOM_AIR_FRICTION) != 0)
+				frict = get_attack_value(attack, AG_WINDOW_CUSTOM_AIR_FRICTION);
+			else
+				frict = air_friction;
+		}
+		else {
+			if(get_window_value(attack, window, AG_WINDOW_HSPEED_TYPE) == 1)
+				frict = 0;
+			else if(get_attack_value(attack, AG_WINDOW_CUSTOM_GROUND_FRICTION) != 0)
+				frict = get_attack_value(attack, AG_WINDOW_CUSTOM_GROUND_FRICTION);
+			else
+				frict = ground_friction;
+		}
+	}
+	if(grav == "attacking") {
+		if(get_window_value(attack, window, AG_WINDOW_VSPEED_TYPE) == 1)
+			grav = 0;
+		else if(get_attack_value(attack, AG_USES_CUSTOM_GRAVITY))
+			grav = get_window_value(attack, window, AG_WINDOW_CUSTOM_GRAVITY);
+		else
+			grav = gravity_speed;
+	}
+	
+	//Simulate movement
+	var projected_pos = [x, y], projected_hsp = hsp, projected_vsp = vsp;
+	repeat(min(time, 40)) {
+		if(state == PS_WAVELAND) {
+			remaining_waveland--;
+			if(remaining_waveland <= 0) return(projected_pos);
+		}
+		if(place_meeting(projected_pos[0], projected_pos[1], asset_get("par_block"))) projected_vsp = 0;
+		projected_pos[0] += projected_hsp;
+		projected_pos[1] += projected_vsp;
+		projected_hsp -= sign(projected_hsp) * frict;
+		if(projected_vsp < max_fall) projected_vsp += grav;
+	}
+	return(projected_pos);
+
 #endregion
 
 #region PLANNING
 #define get_plan()
-	ai_thoughts = "no thoughts head empty :)";
-	
+	// ai_thoughts = "no thoughts head empty :)";
+	if currently_learning {
+		return p_do_nothing
+	}
+	ai_thoughts = `player 1s AT_FAIR has ${known_attacks[1, AT_FAIR].hitboxes_array[1].frame} hitboxes`;
+	if(player_ids[1].shield_down) get_string("hi?", string(known_attacks[1, AT_FAIR].hitboxes_array));
+
 	var plan = p_do_nothing
 	
+	var frames_to_impact = 9999
 	with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
 		if((state == PS_ATTACK_AIR || state == PS_ATTACK_GROUND) && other.knows_attack[player][attack]) {
-			var get_hit_timing = attack_hit_timing(other.known_attacks[player][attack], id, other, true);
+			var contacting_hitbox = find_contacting_hitbox(other.known_attacks[player][attack], id, other, true);
+			if(contacting_hitbox != noone) {
+				frames_to_impact = contacting_hitbox.frame - state_timer;			
+				other.ai_thoughts = `INCOMING IN ${frames_to_impact}!!!`;
+			}
 		}
 	}
-	if(get_hit_timing == 4) plan = p_parry;
+	
+	if frames_to_impact != 9999{
+		prints("frames to impact:", frames_to_impact)	
+	}
+	
+	if(frames_to_impact <= 8) {
+
+		if contacting_hitbox.can_be_charged {
+			plan = p_roll_away
+		} else {
+			plan = p_parry
+		}
+	}
 	return plan
+
+	// with(pHitBox) if(type == 2 && get_player_team(player) != get_player_team(other.player) && sign(hsp) == sign(other.x - x)) {
+		//figure out if it's gonna hit me and parry???
+		//how do i make that check efficiently
+	// }
+
 
 #define set_plan(new_plan)
 	plan = new_plan
@@ -301,10 +431,10 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 	}
 
 #define hold_towards_target
-	hold_toward_direction(xdist)
+	hold_toward_direction(xdisp)
 
 #define hold_away_from_target
-	hold_toward_direction(-xdist)
+	hold_toward_direction(-xdisp)
 
 #define hold_forwards
 	hold_toward_direction(spr_dir)
@@ -435,7 +565,7 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 	parry_down = true
 
 #define direction_to_target()		
-	var direction_to_target = sign(x - ai_target.x)
+	var direction_to_target = sign(xdisp)
 	if direction_to_target == 0 {
 		return spr_dir
 	} else {
@@ -628,3 +758,16 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
             default: var crash_var = 1/0 break; // Crash. Add more support for the number of arguments you need.
         }
     }
+
+// vvv LIBRARY DEFINES AND MACROS vvv
+// DANGER File below this point will be overwritten! Generated defines and macros below.
+// Write NO-INJECT in a comment above this area to disable injection.
+#define prints // Version 0
+    // Prints each parameter to console, separated by spaces.
+    var _out_string = string(argument[0])
+    for (var i=1; i<argument_count; i++) {
+        _out_string += " "
+        _out_string += string(argument[i])
+    }
+    print(_out_string)
+// DANGER: Write your code ABOVE the LIBRARY DEFINES AND MACROS header or it will be overwritten!
