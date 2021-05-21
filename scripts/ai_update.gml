@@ -38,7 +38,7 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 			noone
 		];
 		
-		repeat(1) learn();
+		repeat(50) learn();
 		
 		// if(learning_frame > 15) currently_learning = false;
 		learning_frame++; return(true);
