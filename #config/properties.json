@@ -1,0 +1,6 @@
+{
+    "linterPrefs": {
+        "requireParentheses": false,
+        "requireSemicolons": false
+    }
+}

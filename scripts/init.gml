@@ -1,3 +1,7 @@
+//AI stuff
+showing_thoughts = false;
+is_ai = false;
+
 //character support stuff
 tcoart = sprite_get("tcoart");
 otto_bobblehead_sprite = sprite_get("otto");

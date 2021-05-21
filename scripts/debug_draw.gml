@@ -1,6 +1,4 @@
-if not "is_ai" in self {
-    exit
-}
+if(!is_ai) exit;
 
 with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
 	var projected_pos = get_my_projected_pos(16);
