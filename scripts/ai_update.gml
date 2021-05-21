@@ -1,4 +1,4 @@
-if(load_some_attack_data()) exit;
+load_some_attack_data()
 
 xdisp = ai_target.x - x
 ydisp = ai_target.y - y
@@ -41,9 +41,9 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 		repeat(50) learn();
 		
 		// if(learning_frame > 15) currently_learning = false;
-		learning_frame++; return(true);
+		learning_frame++; exit;
 	} else {
-		currently_learning = false; return(false);
+		currently_learning = false
 	}
 	/*else {
 		if(learning_frame != 69) {
