@@ -12,6 +12,8 @@ study_option_type = "jump";
 
 viable_attack_indexes = 49;
 
+ai_thoughts = "initialized"; ai_thoughts_colour = c_red; thoughts_bubble = sprite_get("thoughts");
+
 knows_attack = array_create(5, undefined);
 for(var incrementeroo = 1; incrementeroo < 5; incrementeroo++;) knows_attack[incrementeroo] = array_create(50, false);
 known_attacks = array_create(5, undefined);
