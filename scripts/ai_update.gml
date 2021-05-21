@@ -38,7 +38,7 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 			noone
 		];
 		
-		repeat(1) learn();
+		repeat(50) learn();
 		
 		// if(learning_frame > 15) currently_learning = false;
 		learning_frame++; exit;
@@ -346,8 +346,8 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 		return p_do_nothing
 	}
 	ai_thoughts = `player 1s AT_FAIR has ${known_attacks[1, AT_FAIR].hitboxes_array[1].frame} hitboxes`;
-	if(player_ids[1].shield_down) get_string("hi?", string(known_attacks[1, AT_FAIR].hitboxes_array));
-
+	if(debug_keyboard_pressed("1")) get_string("hi?", string(known_attacks[1, AT_FAIR].hitboxes_array));
+	
 	var plan = p_do_nothing
 	
 	var frames_to_impact = 9999
@@ -563,6 +563,13 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 	shield_down = true
 	parry_pressed = true
 	parry_down = true
+
+#define debug_keyboard_pressed(index)
+	if(keyboard_lastkey == ord(string(index))) {
+		keyboard_lastkey = 0;
+		return(true);
+	}
+	else return(false);
 
 #define direction_to_target()		
 	var direction_to_target = sign(xdisp)
