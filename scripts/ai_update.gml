@@ -5,15 +5,38 @@ ydisp = ai_target.y - y
 xdist = abs(xdisp);
 ydist = abs(ydisp);
 
-hold_neutral()
+if is_above_ground() {
+	// Keep the ai steady so we can move it intentionally.
+	// hold_neutral()
+	unpress_jump()
 
-set_plan(get_plan())
-do_plan()
+	existing_plan = do_plan()
+	if not existing_plan {
+		set_plan(get_plan())
+		do_plan()
+	} else {
+		// If already doing a plan, dont even think, just do the steps. Possibly a bad idea.
+		print(`still doing plan ${plan}`)
+	}
+}
+
 
 // Fastfall aerials
 if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 	if (hitpause && is_above_ground()) {
-        press_down()
+        tap_down()
+	}
+}
+
+// Hitstun drift
+if state == PS_HITSTUN {
+	if ( xdist < 20 // if in reach of their attacks. Todo, actually get their reach rather than guessing 20.
+	and ((xdisp < 0 and 50 < x) or (0 < xdisp and x < room_width-50) )) { // and not near stage edge
+		hold_away_from_target()
+		ai_thoughts = "Drifting away"
+	}
+	else { 	//otherwise, drift in.
+		hold_toward_center()
 	}
 }
 
@@ -89,7 +112,7 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 	switch(learning_phase) {
 		case "attacks":
 			//Study whatever has been assigned to us this lesson
-			ai_thoughts = `Learning all about player ${study_player_num}s ${get_attack_name(study_attack_index)}`; 
+			ai_thoughts = `Learning all about player ${study_player_num}s ${get_attack_name(study_attack_index)}`;  // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found
 			comprehend_attack(player_ids[study_player_num], study_attack_index);
 			
 			//Figure out what we'll study next lesson
@@ -107,7 +130,7 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 		break;
 		case "options":
 			//Study whatever has been assigned to us this lesson
-			ai_thoughts = `Learning all about player ${study_player_num}s ${study_option_type}`; 
+			ai_thoughts = `Learning all about player ${study_player_num}s ${study_option_type}`;  // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found
 			switch(study_option_type) {
 				case "jump":
 					known_options[study_player_num].jump = {
@@ -121,8 +144,6 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 						sim_y += sim_vsp;
 						array_push(known_options[study_player_num].jump.frame_heights, sim_y);
 					}
-					
-					knows_option[study_player_num].jump = true;
 				break;
 				case "shorthop":
 					known_options[study_player_num].shorthop = {
@@ -130,8 +151,6 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 						peak_height: 0,
 						peak_time: 0
 					}
-					
-					knows_option[study_player_num].shorthop = true;
 				break;
 				case "double_jump":
 					known_options[study_player_num].double_jump = {
@@ -139,8 +158,6 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 						peak_height: 0,
 						peak_time: 0
 					}
-					
-					knows_option[study_player_num].double_jump = true;
 				break;
 				case "wavedash":
 					known_options[study_player_num].wavedash = {
@@ -148,8 +165,6 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 						initial_hsp: 0,
 						duration: 0
 					}
-					
-					knows_option[study_player_num].wavedash = true;
 					
 					//Figure out what we'll study the next lesson
 					study_player_num++; study_option_type = "jump";
@@ -172,15 +187,21 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 	with(attacker) {
 		if(get_attack_value(study_index, AG_NUM_WINDOWS) == 0) {
 			//this attack doesn't exist
-			other.knows_attack[@attacker.player][@study_index] = undefined;
 			exit;
 		}
 		
+		var paranoia = undefined
+		if attacker == self {
+			paranoia = 0.8
+		} else {
+			paranoia = 1.2
+		}
+
 		//Prepare basic stuff
 		other.known_attacks[@attacker.player][@study_index] = {
 			name: get_attack_name(study_index),
 			category: get_attack_value(study_index, AG_CATEGORY),
-			paranoia: 1.1, //multiplier to the size of predicted hitboxes; doesn't increase naturally yet
+			paranoia: paranoia, //multiplier to the size of predicted hitboxes; doesn't change naturally yet
 			parry_reward_mult: 1.0,
 			hitboxes_array: [],
 			hitboxes_count: 0,
@@ -239,8 +260,10 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 		other.known_attacks[@attacker.player][@study_index].hitboxes_count = saved_count;
 		
 	}
-	
-	knows_attack[@attacker.player][@study_index] = true;
+
+#define knows_attack(ai, _player, _attack)
+	return ai.known_attacks[_player][_attack] != undefined
+
 
 #define get_my_projected_pos(time)
 	//Assign friction and gravity
@@ -322,61 +345,89 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 
 #region PLANNING
 #define get_plan()
-	// ai_thoughts = "no thoughts head empty :)";
 	if currently_learning {
 		return p_do_nothing
 	}
-	ai_thoughts = `player 1s AT_FAIR has ${known_attacks[1, AT_FAIR].hitboxes_array[1].frame} hitboxes`;
+	// ai_thoughts = `player 1s AT_FAIR has ${known_attacks[1, AT_FAIR].hitboxes_array[1].frame} hitboxes`;
 	if(debug_keyboard_pressed("1")) get_string("hi?", string(known_attacks[1, AT_FAIR].hitboxes_array));
 	
-	var plan = p_do_nothing
-	
-	var frames_to_impact = 9999
-	with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
-		if((state == PS_ATTACK_AIR || state == PS_ATTACK_GROUND) && other.knows_attack[player][attack]) {
-			var contacting_hitbox = find_contacting_hitbox(other.known_attacks[player][attack], id, other, true);
-			if(contacting_hitbox != noone) { //  and contacting_hitbox != 0. Previously the contacting_hitbox function was returning 0s. Should be fixed by removing the `exit`.
-				frames_to_impact = contacting_hitbox.frame - state_timer;			
-				other.ai_thoughts = `INCOMING IN ${frames_to_impact}!!!`;
+
+	// Parry/Dodge coming attack
+	if can_shield {
+		var frames_to_impact = 9999
+		with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
+			if((state == PS_ATTACK_AIR || state == PS_ATTACK_GROUND) and knows_attack(other, player, attack)) {
+				var contacting_hitbox = find_contacting_hitbox(other.known_attacks[player][attack], id, other, true);
+				if(contacting_hitbox != noone) {
+					frames_to_impact = contacting_hitbox.frame - state_timer;			
+					other.ai_thoughts = `INCOMING IN ${frames_to_impact}!!!`;
+				}
+			}
+		}
+		if(frames_to_impact <= 8) {
+			if contacting_hitbox.can_be_charged {
+				return p_roll_away
+			} else {
+				return p_parry
 			}
 		}
 	}
 	
-	if(frames_to_impact <= 8) {
 
-		if contacting_hitbox.can_be_charged {
-			plan = p_roll_away
-		} else {
-			plan = p_parry
+	// Attack if opponent will be in range
+	// Currently this just takes the first attack it finds that will hit.
+	if can_attack {
+		for (var attack_i=0; attack_i<array_length(known_attacks[player]); attack_i++) {
+			var this_attack = known_attacks[player][attack_i]
+			if this_attack != undefined {
+				var contacting_hitbox = find_contacting_hitbox(this_attack, id, ai_target, true);
+				if(contacting_hitbox != noone) {
+					plan = get_attack_plan(attack_i)
+					ai_thoughts = `Using ${get_attack_name(attack_i)}`;
+					if plan != noone {
+						return plan
+					}
+				}
+			}
 		}
 	}
-	return plan
-
-	// with(pHitBox) if(type == 2 && get_player_team(player) != get_player_team(other.player) && sign(hsp) == sign(other.x - x)) {
-		//figure out if it's gonna hit me and parry???
-		//how do i make that check efficiently
-	// }
-
+	
+	if state_cat == SC_AIR_NEUTRAL {
+		return [["tap_down"]]
+	} 
+	if state_cat == SC_GROUND_NEUTRAL {
+		if state != PS_DASH and state != PS_DASH_START {
+			return [["hold_towards_target", "tap_current_horizontal_direction"]] // For some reason sometimes they stay in idle and try to dash every frame. Maybe related to holding neutral.
+		} else {
+			return [["hold_towards_target"]]
+		}	
+	}
+	
 
 #define set_plan(new_plan)
-	plan = new_plan
-	plan_timer = 0	
+	if new_plan != undefined {
+		plan = new_plan
+		plan_timer = 0
+	}
+	
 	
 #endregion
 
 
 #region EXECUTION
 #define do_plan()
-	// if (plan_timer >= array_length(plan)) print("ERROR: trying to perform completed plan")
 	if plan_timer < array_length(plan){
 		var actions_for_turn = plan[plan_timer]
 		for (var action_i=0; action_i<array_length(actions_for_turn); action_i++) {
 		    var action = actions_for_turn[action_i]
 		    do_action(action)
 		}
+		plan_timer++
+	} else {
+		return false
 	}
 	
-	plan_timer++
+	
 
 #define do_action(action_name)
 	run_if_exists(action_name)
@@ -425,7 +476,7 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 	unpress_up()
 	unpress_down()
 
-#define hold_center_stage
+#define hold_toward_center
 	var center_dir = sign(x - room_width / 2);
 	hold_toward_direction(center_dir)
 
@@ -534,6 +585,10 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 #define press_jump()
 	jump_pressed = true
 	jump_down = true
+
+#define unpress_jump()
+	jump_pressed = false
+	jump_down = false
 
 #define press_parry()
 	shield_pressed = true
@@ -715,6 +770,53 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 		break;
 	}
 	
+#define get_attack_plan(_attack)
+	switch _attack {
+		case AT_JAB:	
+			return [["press_attack"]]
+		break
+		case AT_DATTACK:
+			return [["hold_neutral", "hold_towards_target", "tap_current_horizontal_direction",
+			"press_attack"]]
+			
+		break
+		case AT_NSPECIAL:
+			return[["hold_neutral", "press_special"]]
+		break
+		case AT_FSPECIAL:
+		case AT_FSPECIAL_2:
+		case AT_FSPECIAL_AIR:
+			return[["hold_neutral",	"hold_towards_target", "press_special"]]
+		break
+		case AT_USPECIAL:
+			return[["press_up",	"hold_towards_target", "press_special"]]
+		break
+		case AT_DSPECIAL:
+		case AT_DSPECIAL_2:
+		case AT_DSPECIAL_AIR:
+			return[["press_down", "hold_towards_target", "press_special"]]
+		break
+		case AT_FSTRONG:
+			return[["hold_neutral",	"hold_towards_target", "press_strong"]]
+		case AT_USTRONG:
+			return[["press_up", "hold_towards_target", "press_strong"]]
+		break
+		case AT_DSTRONG:
+			return[["press_down", "hold_towards_target", "press_strong"]]
+		break
+		case AT_FTILT:
+			return[["hold_neutral", "hold_towards_target", "press_attack"]]
+		break
+		case AT_UTILT:
+			return[["press_up", "hold_towards_target", "press_attack"]]
+		break
+		case AT_DTILT:
+			return[["press_down", "hold_towards_target", "press_attack"]]
+		break
+		default:
+			// print(`rejecting currently unsupported attack ${get_attack_name(_attack)}`)
+			return noone
+	}
 
 #define find_player_instance(number)
 	with(oPlayer) if(player == number) return(id);
@@ -740,16 +842,3 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
             default: var crash_var = 1/0 break; // Crash. Add more support for the number of arguments you need.
         }
     }
-
-// vvv LIBRARY DEFINES AND MACROS vvv
-// DANGER File below this point will be overwritten! Generated defines and macros below.
-// Write NO-INJECT in a comment above this area to disable injection.
-#define prints // Version 0
-    // Prints each parameter to console, separated by spaces.
-    var _out_string = string(argument[0])
-    for (var i=1; i<argument_count; i++) {
-        _out_string += " "
-        _out_string += string(argument[i])
-    }
-    print(_out_string)
-// DANGER: Write your code ABOVE the LIBRARY DEFINES AND MACROS header or it will be overwritten!

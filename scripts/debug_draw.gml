@@ -19,7 +19,7 @@ with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
 			
 			draw_set_alpha(clamp(1 - (time_until_hit / 5), 0.43, 1.0));
 			if(this_hitbox.is_rectangle)
-				draw_rectangle_colour(hit_x - half_w, hit_y - half_h, hit_x + half_w, hit_y + half_h, c_red, $ee9bff, c_red, $ee9bff, false); // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found
+				draw_rectangle_colour(hit_x - half_w, hit_y - half_h, hit_x + half_w, hit_y + half_h, c_red, $ee9bff, c_red, $ee9bff, false);
 			else
 				draw_ellipse_colour(hit_x - half_w, hit_y - half_h, hit_x + half_w, hit_y + half_h, c_red, $ee9bff, false);
 			draw_set_alpha(1.0);

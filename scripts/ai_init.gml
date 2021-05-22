@@ -14,20 +14,9 @@ viable_attack_indexes = 49;
 
 ai_thoughts = "initialized"; ai_thoughts_colour = c_red; thoughts_bubble = sprite_get("thoughts");
 
-knows_attack = array_create(5, undefined);
-for(var incrementeroo = 1; incrementeroo < 5; incrementeroo++;) knows_attack[incrementeroo] = array_create(50, false);
 known_attacks = array_create(5, undefined);
 for(var incrementeroo = 1; incrementeroo < 5; incrementeroo++;) known_attacks[incrementeroo] = array_create(50, undefined);
 
-
-
-knows_option = array_create(5, undefined);
-for(var incrementeroo = 1; incrementeroo < 5; incrementeroo++;) knows_option[incrementeroo] = {
-	jump: false,
-	shorthop: false,
-	double_jump: false,
-	wavedash: false
-};
 known_options = array_create(5, undefined);
 for(var incrementeroo = 1; incrementeroo < 5; incrementeroo++;) known_options[incrementeroo] = {
 	jump: undefined,
@@ -57,9 +46,9 @@ p_do_nothing = [[]]
 
 p_parry = [
 	["hold_neutral", "press_parry"],
-	[],	[],	[],
-	[],	[],	[],
-	[],
+	["hold_neutral"],	["hold_neutral"],	["hold_neutral"],
+	["hold_neutral"],	["hold_neutral"],	["hold_neutral"],
+	["hold_neutral"],
 	["press_jump"],
 ]
 
