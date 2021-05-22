@@ -20,14 +20,6 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 
 #region LEARNING
 #define load_some_attack_data
-	// ai_thoughts = "updated AI???";
-	// if(get_gameplay_time() % 12 == 0) ai_thoughts += ".";
-	
-	//Limitations:
-	//If a character changes their stats, the AI will make inaccurate predictions about them
-	
-	// exit;
-	
 	if(currently_learning && learning_phase == "attacks") {
 		if(learning_frame == 0) player_ids = [
 			noone,
@@ -40,32 +32,22 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 		
 		repeat(50) learn();
 		
-		// if(learning_frame > 15) currently_learning = false;
 		learning_frame++; exit;
 	} else {
 		currently_learning = false
 	}
-	/*else {
-		if(learning_frame != 69) {
-			learning_frame = 69;
-			// get_string("here you go:", string(known_attacks));
-		}
-		// ai_thoughts = "help... ;-;";
-		ai_thoughts = `player 1's AT_FSTRONG has ${known_attacks[1, AT_FSTRONG].hitboxes_array[4].max_damage} damage`;
-	}*/
 	
 
 #define find_contacting_hitbox(this_attack, attacker, target, precise)
 	if(target.object_index == oPlayer || target.object_index == oTestPlayer) target = target.hurtboxID;
 	var fastest_hit = 9999, highest_priority = -1, contacting_hitbox = noone;
-	for(var incrementeroo = 0; incrementeroo < this_attack.hitboxes_count; incrementeroo++;) {
-		var this_hitbox = this_attack.hitboxes_array[incrementeroo];
+	for(var hitbox_i = 0; hitbox_i < this_attack.hitboxes_count; hitbox_i++;) {
+		var this_hitbox = this_attack.hitboxes_array[hitbox_i];
 		// if(attacker.state_timer > this_hitbox.end_frame) continue;
 		
-		var is_viable_hit = false, time_until_hit = this_hitbox.frame - attacker.state_timer - 1;
-		
+		var time_until_hit = this_hitbox.frame - attacker.state_timer - 1;		
 		var attacker_projected_pos = get_my_projected_pos(time_until_hit);
-		
+
 		// var attacker_projected_pos = get_projected_pos(attacker, time_until_hit, attacker.gravity_speed, attacker.max_fall);
 		var hit_x = attacker_projected_pos[0] + this_hitbox.xpos * spr_dir;
 		var hit_y = attacker_projected_pos[1] + this_hitbox.ypos;
@@ -73,7 +55,7 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 		
 		
 		//If the currently recorded hit has higher priority and is either faster or equal in speed, this one doesn't matter
-		if(highest_priority >= this_hitbox.priority && fastest_hit <= time_until_hit) exit;
+		if(highest_priority >= this_hitbox.priority && fastest_hit <= time_until_hit) continue;
 		
 		//If this hitbox's bounding box isn't right, this one doesn't matter
 		// var target_half_w = target.sprite_width * 0.5, target_half_h = target.sprite_height * 0.5;
@@ -107,7 +89,7 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 	switch(learning_phase) {
 		case "attacks":
 			//Study whatever has been assigned to us this lesson
-			ai_thoughts = `Learning all about player ${study_player_num}s ${get_attack_name(study_attack_index)}`; // ERROR: No code injection match found
+			ai_thoughts = `Learning all about player ${study_player_num}s ${get_attack_name(study_attack_index)}`; 
 			comprehend_attack(player_ids[study_player_num], study_attack_index);
 			
 			//Figure out what we'll study next lesson
@@ -125,7 +107,7 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 		break;
 		case "options":
 			//Study whatever has been assigned to us this lesson
-			ai_thoughts = `Learning all about player ${study_player_num}s ${study_option_type}`; // ERROR: No code injection match found
+			ai_thoughts = `Learning all about player ${study_player_num}s ${study_option_type}`; 
 			switch(study_option_type) {
 				case "jump":
 					known_options[study_player_num].jump = {
@@ -252,7 +234,6 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 			
 			saved_count++; valid_count++; analyze_hit_index++;
 		}
-		// print(other.known_attacks[attacker.player][study_index].hitboxes_array[1].damage);
 		
 		//Prepare hitbox-derived details
 		other.known_attacks[@attacker.player][@study_index].hitboxes_count = saved_count;
@@ -354,15 +335,11 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 	with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
 		if((state == PS_ATTACK_AIR || state == PS_ATTACK_GROUND) && other.knows_attack[player][attack]) {
 			var contacting_hitbox = find_contacting_hitbox(other.known_attacks[player][attack], id, other, true);
-			if(contacting_hitbox != noone) {
+			if(contacting_hitbox != noone) { //  and contacting_hitbox != 0. Previously the contacting_hitbox function was returning 0s. Should be fixed by removing the `exit`.
 				frames_to_impact = contacting_hitbox.frame - state_timer;			
 				other.ai_thoughts = `INCOMING IN ${frames_to_impact}!!!`;
 			}
 		}
-	}
-	
-	if frames_to_impact != 9999{
-		prints("frames to impact:", frames_to_impact)	
 	}
 	
 	if(frames_to_impact <= 8) {
@@ -742,8 +719,6 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 #define find_player_instance(number)
 	with(oPlayer) if(player == number) return(id);
 	return(noone);
-	
-	
 	
 #define run_if_exists 
     // script_name, ...args
