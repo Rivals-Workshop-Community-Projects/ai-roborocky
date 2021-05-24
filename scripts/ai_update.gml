@@ -1,14 +1,21 @@
 load_some_attack_data()
+if hitpause{
+	exit
+}
 
 xdisp = ai_target.x - x
 ydisp = ai_target.y - y
 xdist = abs(xdisp);
 ydist = abs(ydisp);
+dist = point_distance(x, y, ai_target.x, ai_target.y)
+var upward_velocity = min(0, vsp)
+arc_height = (upward_velocity * upward_velocity) / (2*gravity_speed)
 
 if is_above_ground() {
-	// Keep the ai steady so we can move it intentionally.
-	// hold_neutral()
+// 	// Keep the ai steady so we can move it intentionally.
+	hold_neutral()
 	unpress_jump()
+	unpress_actions()
 
 	existing_plan = do_plan()
 	if not existing_plan {
@@ -16,7 +23,6 @@ if is_above_ground() {
 		do_plan()
 	} else {
 		// If already doing a plan, dont even think, just do the steps. Possibly a bad idea.
-		print(`still doing plan ${plan}`)
 	}
 }
 
@@ -30,16 +36,109 @@ if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
 
 // Hitstun drift
 if state == PS_HITSTUN {
-	if ( xdist < 20 // if in reach of their attacks. Todo, actually get their reach rather than guessing 20.
+	if ( xdist < 60 // if in reach of their attacks. Todo, actually get their reach rather than guessing?
 	and ((xdisp < 0 and 50 < x) or (0 < xdisp and x < room_width-50) )) { // and not near stage edge
 		hold_away_from_target()
 		ai_thoughts = "Drifting away"
 	}
 	else { 	//otherwise, drift in.
 		hold_toward_center()
+		ai_thoughts = "Drifting to center"  
 	}
 }
 
+
+#region PLANNING
+#define get_plan() 
+	if currently_learning {
+		return p_do_nothing
+	}
+	// ai_thoughts = `player 1s AT_FAIR has ${known_attacks[1, AT_FAIR].hitboxes_array[1].frame} hitboxes`;
+	if(debug_keyboard_pressed("1")) get_string("hi?", string(known_attacks[1, AT_FAIR].hitboxes_array));
+	
+
+	// Parry/Dodge coming attack
+	if can_shield and dist < 200 {
+		var frames_to_impact = 9999
+		with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
+			if((state == PS_ATTACK_AIR || state == PS_ATTACK_GROUND) and knows_attack(other, player, attack)) {
+				var contacting_hitbox = find_contacting_hitbox(other.known_attacks[player][attack], id, other, true);
+				if(contacting_hitbox != noone) {
+					frames_to_impact = contacting_hitbox.frame - state_timer;			
+					other.ai_thoughts = `INCOMING IN ${frames_to_impact}!!!`;
+				}
+			}
+		}
+		if(frames_to_impact <= 8) {
+			if contacting_hitbox.can_be_charged {
+				return p_roll_away
+			} else {
+				return p_parry
+			}
+		}
+	}
+	
+
+	// Attack if opponent will be in range
+	// Currently this just takes the first attack it finds that will hit.
+	// for (var attack_i=0; attack_i<array_length(known_attacks[player]); attack_i++) {
+	// 	var this_attack = known_attacks[player][attack_i]
+	// 	print(this_attac)
+
+
+	for (var attack_i=0; attack_i<array_length(known_attacks[player]); attack_i++) {
+		var this_attack = known_attacks[player][attack_i]
+		if this_attack != undefined {
+			if my_attack_might_hit(this_attack) {
+				var contacting_hitbox = find_contacting_hitbox(this_attack, id, ai_target, true);
+				if(contacting_hitbox != noone) {
+					plan = get_attack_plan(attack_i)
+					ai_thoughts = `Using ${get_attack_name(attack_i)}`;
+					if plan != noone {
+						return plan
+					}
+				}
+			}
+		}
+	}
+	
+	if state_cat == SC_AIR_NEUTRAL {
+		return [["tap_down"]]
+	} 
+	if state_cat == SC_GROUND_NEUTRAL {
+		// if state != PS_DASH and state != PS_DASH_START {
+		// 	return [["hold_towards_target", "tap_current_horizontal_direction"]] // For some reason sometimes they stay in idle and try to dash every frame. Maybe related to holding neutral.
+		// } else {
+		return [["hold_towards_target"]]
+		// }	
+	}
+	
+
+#define set_plan(new_plan)
+	if new_plan != undefined {
+		plan = new_plan
+		plan_timer = 0
+	}
+	
+	
+#endregion
+
+#define my_attack_might_hit(this_attack)
+	// Assumes self is attacking ai_target.
+	return my_attack_might_hit_horizontally(this_attack) and my_attack_might_hit_vertically(this_attack)
+
+#define my_attack_might_hit_horizontally(this_attack)
+	var distance_moved = abs(hsp) * this_attack.last_active_frame // Todo take into account if moving *toward* or away from opponent
+	var effective_x_reach = this_attack.max_x_reach + distance_moved
+	return xdist < effective_x_reach
+
+#define my_attack_might_hit_vertically(this_attack)
+	if ydisp >= 0 {
+		return true // Just assuming fastfalling will be enough.
+	} else {	
+		var effective_upward_reach = this_attack.max_upward_reach + arc_height
+		return effective_upward_reach > ydist
+	}
 
 #region LEARNING
 #define load_some_attack_data
@@ -112,7 +211,7 @@ if state == PS_HITSTUN {
 	switch(learning_phase) {
 		case "attacks":
 			//Study whatever has been assigned to us this lesson
-			ai_thoughts = `Learning all about player ${study_player_num}s ${get_attack_name(study_attack_index)}`;  // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found
+			ai_thoughts = `Learning all about player ${study_player_num}s ${get_attack_name(study_attack_index)}`;
 			comprehend_attack(player_ids[study_player_num], study_attack_index);
 			
 			//Figure out what we'll study next lesson
@@ -130,7 +229,7 @@ if state == PS_HITSTUN {
 		break;
 		case "options":
 			//Study whatever has been assigned to us this lesson
-			ai_thoughts = `Learning all about player ${study_player_num}s ${study_option_type}`;  // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found // ERROR: No code injection match found
+			ai_thoughts = `Learning all about player ${study_player_num}s ${study_option_type}`;
 			switch(study_option_type) {
 				case "jump":
 					known_options[study_player_num].jump = {
@@ -207,7 +306,9 @@ if state == PS_HITSTUN {
 			hitboxes_count: 0,
 			max_damage: 0,
 			first_active_frame: 0,
-			last_active_frame: 0
+			last_active_frame: 0,
+			max_x_reach: 0,
+			max_upward_reach: 0,
 		};
 		
 		var windows_count = get_attack_value(study_index, AG_NUM_WINDOWS);
@@ -239,19 +340,29 @@ if state == PS_HITSTUN {
 			var charge_window = get_attack_value(study_index, AG_STRONG_CHARGE_WINDOW);
 			var charge_window_prior = charge_window != 0 && charge_window < get_hitbox_value(study_index, analyze_hit_index, HG_WINDOW);
 			
+			var xpos = get_hitbox_value(study_index, analyze_hit_index, HG_HITBOX_X)
+			var ypos = get_hitbox_value(study_index, analyze_hit_index, HG_HITBOX_Y)
+			var radius_x =0.5 * get_hitbox_value(study_index, analyze_hit_index, HG_WIDTH)
+			var radius_y =0.5 * get_hitbox_value(study_index, analyze_hit_index, HG_HEIGHT)
+
 			array_push(other.known_attacks[@attacker.player][@study_index].hitboxes_array, {
 				damage: get_hitbox_value(study_index, analyze_hit_index, HG_DAMAGE),
 				priority: get_hitbox_value(study_index, analyze_hit_index, HG_PRIORITY),
 				is_rectangle: get_hitbox_value(study_index, analyze_hit_index, HG_SHAPE) != 0,
-				radius_x: 0.5 * get_hitbox_value(study_index, analyze_hit_index, HG_WIDTH),
-				radius_y: 0.5 * get_hitbox_value(study_index, analyze_hit_index, HG_HEIGHT),
-				xpos: get_hitbox_value(study_index, analyze_hit_index, HG_HITBOX_X),
-				ypos: get_hitbox_value(study_index, analyze_hit_index, HG_HITBOX_Y),
+				radius_x: radius_x,
+				radius_y: radius_y,
+				xpos: xpos,
+				ypos: ypos,
 				frame: start_frame,
 				end_frame: start_frame + get_hitbox_value(study_index, analyze_hit_index, HG_LIFETIME),
 				can_be_charged: charge_window_prior
 			});
-			
+
+			var x_reach = xpos + radius_x
+			other.known_attacks[@attacker.player][@study_index].max_x_reach = max(x_reach, other.known_attacks[@attacker.player][@study_index].max_x_reach)
+
+			var upward_reach = -ypos + radius_y
+			other.known_attacks[@attacker.player][@study_index].max_upward_reach = max(upward_reach, other.known_attacks[@attacker.player][@study_index].max_upward_reach)
 			
 			saved_count++; valid_count++; analyze_hit_index++;
 		}
@@ -337,82 +448,11 @@ if state == PS_HITSTUN {
 		projected_pos[0] += projected_hsp;
 		projected_pos[1] += projected_vsp;
 		projected_hsp -= sign(projected_hsp) * frict;
-		if(projected_vsp < max_fall) projected_vsp += grav;
+		projected_vsp = min(max_fall, projected_vsp+grav)
 	}
 	return(projected_pos);
 
 #endregion
-
-#region PLANNING
-#define get_plan()
-	if currently_learning {
-		return p_do_nothing
-	}
-	// ai_thoughts = `player 1s AT_FAIR has ${known_attacks[1, AT_FAIR].hitboxes_array[1].frame} hitboxes`;
-	if(debug_keyboard_pressed("1")) get_string("hi?", string(known_attacks[1, AT_FAIR].hitboxes_array));
-	
-
-	// Parry/Dodge coming attack
-	if can_shield {
-		var frames_to_impact = 9999
-		with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
-			if((state == PS_ATTACK_AIR || state == PS_ATTACK_GROUND) and knows_attack(other, player, attack)) {
-				var contacting_hitbox = find_contacting_hitbox(other.known_attacks[player][attack], id, other, true);
-				if(contacting_hitbox != noone) {
-					frames_to_impact = contacting_hitbox.frame - state_timer;			
-					other.ai_thoughts = `INCOMING IN ${frames_to_impact}!!!`;
-				}
-			}
-		}
-		if(frames_to_impact <= 8) {
-			if contacting_hitbox.can_be_charged {
-				return p_roll_away
-			} else {
-				return p_parry
-			}
-		}
-	}
-	
-
-	// Attack if opponent will be in range
-	// Currently this just takes the first attack it finds that will hit.
-	if can_attack {
-		for (var attack_i=0; attack_i<array_length(known_attacks[player]); attack_i++) {
-			var this_attack = known_attacks[player][attack_i]
-			if this_attack != undefined {
-				var contacting_hitbox = find_contacting_hitbox(this_attack, id, ai_target, true);
-				if(contacting_hitbox != noone) {
-					plan = get_attack_plan(attack_i)
-					ai_thoughts = `Using ${get_attack_name(attack_i)}`;
-					if plan != noone {
-						return plan
-					}
-				}
-			}
-		}
-	}
-	
-	if state_cat == SC_AIR_NEUTRAL {
-		return [["tap_down"]]
-	} 
-	if state_cat == SC_GROUND_NEUTRAL {
-		if state != PS_DASH and state != PS_DASH_START {
-			return [["hold_towards_target", "tap_current_horizontal_direction"]] // For some reason sometimes they stay in idle and try to dash every frame. Maybe related to holding neutral.
-		} else {
-			return [["hold_towards_target"]]
-		}	
-	}
-	
-
-#define set_plan(new_plan)
-	if new_plan != undefined {
-		plan = new_plan
-		plan_timer = 0
-	}
-	
-	
-#endregion
-
 
 #region EXECUTION
 #define do_plan()
@@ -423,6 +463,7 @@ if state == PS_HITSTUN {
 		    do_action(action)
 		}
 		plan_timer++
+		return true
 	} else {
 		return false
 	}
@@ -559,26 +600,30 @@ if state == PS_HITSTUN {
 	down_hard_down = true
 	down_hard_pressed = true
 
-#define press_no_action_buttons
+#define unpress_actions
 	attack_down = false
 	attack_pressed = false
 	special_down = false
 	special_pressed = false
 	strong_down = false
 	strong_pressed = false
+	parry_pressed = false
+	parry_down = false
+	shield_pressed = false
+	shield_down = false
 
 #define press_attack()
-	press_no_action_buttons()
+	unpress_actions()
 	attack_down = true
 	attack_pressed = true
 	
 #define press_special()
-	press_no_action_buttons()
+	unpress_actions()
 	special_pressed = true
 	special_down = true
 	
 #define press_strong()
-	press_no_action_buttons()
+	unpress_actions()
 	strong_pressed = true
 	strong_down = true
 
@@ -842,3 +887,16 @@ if state == PS_HITSTUN {
             default: var crash_var = 1/0 break; // Crash. Add more support for the number of arguments you need.
         }
     }
+
+// vvv LIBRARY DEFINES AND MACROS vvv
+// DANGER File below this point will be overwritten! Generated defines and macros below.
+// Write NO-INJECT in a comment above this area to disable injection.
+#define prints // Version 0
+    // Prints each parameter to console, separated by spaces.
+    var _out_string = string(argument[0])
+    for (var i=1; i<argument_count; i++) {
+        _out_string += " "
+        _out_string += string(argument[i])
+    }
+    print(_out_string)
+// DANGER: Write your code ABOVE the LIBRARY DEFINES AND MACROS header or it will be overwritten!
