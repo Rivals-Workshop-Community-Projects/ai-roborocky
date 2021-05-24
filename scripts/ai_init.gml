@@ -38,7 +38,7 @@ example_options = {
 #endregion
 
 
-
+maximum_safe_reaction_frames = 15 // Number of frames of startup its okay to allow the opponent to react. Anything more will be considered unsafe and not used.
 
 #region PLANS
 

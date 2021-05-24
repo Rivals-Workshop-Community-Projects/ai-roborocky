@@ -81,27 +81,25 @@ if state == PS_HITSTUN {
 
 	// Attack if opponent will be in range
 	// Currently this just takes the first attack it finds that will hit.
-	// for (var attack_i=0; attack_i<array_length(known_attacks[player]); attack_i++) {
-	// 	var this_attack = known_attacks[player][attack_i]
-	// 	print(this_attac)
-
-
+	usable_attacks = []
 	for (var attack_i=0; attack_i<array_length(known_attacks[player]); attack_i++) {
 		var this_attack = known_attacks[player][attack_i]
-		if this_attack != undefined {
-			if my_attack_might_hit(this_attack) {
-				var contacting_hitbox = find_contacting_hitbox(this_attack, id, ai_target, true);
-				if(contacting_hitbox != noone) {
-					plan = get_attack_plan(attack_i)
-					ai_thoughts = `Using ${get_attack_name(attack_i)}`;
-					if plan != noone {
-						return plan
-					}
-				}
-			}
+		if this_attack != undefined 
+				and array_length(this_attack.hitboxes_array) > 0
+				and is_attack_fast_enough(this_attack, maximum_safe_reaction_frames) 
+				and my_attack_might_hit(this_attack) 
+				and find_contacting_hitbox(this_attack, id, ai_target, true) != noone {
+			array_push(usable_attacks, attack_i)
 		}
 	}
-	
+	print(usable_attacks)
+	best_attack = get_best_attack(usable_attacks)
+	plan = get_attack_plan(attack_i)
+	ai_thoughts = `Using ${get_attack_name(attack_i)}`;
+	if plan != undefined {
+		// return plan
+	}
+
 	if state_cat == SC_AIR_NEUTRAL {
 		return [["tap_down"]]
 	} 
@@ -123,6 +121,10 @@ if state == PS_HITSTUN {
 	
 #endregion
 
+#define is_attack_fast_enough(this_attack, max_startup)
+	return this_attack.first_active_frame <= max_startup
+
+
 #define my_attack_might_hit(this_attack)
 	// Assumes self is attacking ai_target.
 	return my_attack_might_hit_horizontally(this_attack) and my_attack_might_hit_vertically(this_attack)
@@ -139,6 +141,9 @@ if state == PS_HITSTUN {
 		var effective_upward_reach = this_attack.max_upward_reach + arc_height
 		return effective_upward_reach > ydist
 	}
+
+#define get_best_attack(attacks)
+	return attacks[0] //todo
 
 #region LEARNING
 #define load_some_attack_data
@@ -201,10 +206,6 @@ if state == PS_HITSTUN {
 	}
 	return(contacting_hitbox);
 
-// #define get_projected_pos(target, time, grav, frict)
-// 	return([target.x, target.y]);
-
-
 #define learn
 	if(learning_frame < 1) return(false);
 	//First, check if we need to move on and study something else
@@ -229,7 +230,7 @@ if state == PS_HITSTUN {
 		break;
 		case "options":
 			//Study whatever has been assigned to us this lesson
-			ai_thoughts = `Learning all about player ${study_player_num}s ${study_option_type}`;
+			ai_thoughts = `Learning all about player ${study_player_num}s ${study_option_type}`
 			switch(study_option_type) {
 				case "jump":
 					known_options[study_player_num].jump = {
@@ -305,8 +306,8 @@ if state == PS_HITSTUN {
 			hitboxes_array: [],
 			hitboxes_count: 0,
 			max_damage: 0,
-			first_active_frame: 0,
-			last_active_frame: 0,
+			first_active_frame: undefined,
+			last_active_frame: undefined,
 			max_x_reach: 0,
 			max_upward_reach: 0,
 		};
@@ -335,7 +336,19 @@ if state == PS_HITSTUN {
 				start_frame += get_window_value(study_index, process_window, AG_WINDOW_LENGTH);
 				process_window--;
 			}
-			
+			if other.known_attacks[@attacker.player][@study_index].first_active_frame == undefined {
+				other.known_attacks[@attacker.player][@study_index].first_active_frame = start_frame
+			} else {
+				other.known_attacks[@attacker.player][@study_index].first_active_frame = min(start_frame, other.known_attacks[@attacker.player][@study_index].first_active_frame)
+			}
+
+			var end_frame = start_frame + get_hitbox_value(study_index, analyze_hit_index, HG_LIFETIME)
+			if other.known_attacks[@attacker.player][@study_index].last_active_frame == undefined {
+				other.known_attacks[@attacker.player][@study_index].last_active_frame = end_frame
+			} else {
+				other.known_attacks[@attacker.player][@study_index].last_active_frame = max(end_frame, other.known_attacks[@attacker.player][@study_index].last_active_frame)
+			}
+
 			//Check if it can be charged
 			var charge_window = get_attack_value(study_index, AG_STRONG_CHARGE_WINDOW);
 			var charge_window_prior = charge_window != 0 && charge_window < get_hitbox_value(study_index, analyze_hit_index, HG_WINDOW);
@@ -354,7 +367,7 @@ if state == PS_HITSTUN {
 				xpos: xpos,
 				ypos: ypos,
 				frame: start_frame,
-				end_frame: start_frame + get_hitbox_value(study_index, analyze_hit_index, HG_LIFETIME),
+				end_frame: end_frame,
 				can_be_charged: charge_window_prior
 			});
 
@@ -860,7 +873,7 @@ if state == PS_HITSTUN {
 		break
 		default:
 			// print(`rejecting currently unsupported attack ${get_attack_name(_attack)}`)
-			return noone
+			return undefined
 	}
 
 #define find_player_instance(number)
@@ -887,16 +900,3 @@ if state == PS_HITSTUN {
             default: var crash_var = 1/0 break; // Crash. Add more support for the number of arguments you need.
         }
     }
-
-// vvv LIBRARY DEFINES AND MACROS vvv
-// DANGER File below this point will be overwritten! Generated defines and macros below.
-// Write NO-INJECT in a comment above this area to disable injection.
-#define prints // Version 0
-    // Prints each parameter to console, separated by spaces.
-    var _out_string = string(argument[0])
-    for (var i=1; i<argument_count; i++) {
-        _out_string += " "
-        _out_string += string(argument[i])
-    }
-    print(_out_string)
-// DANGER: Write your code ABOVE the LIBRARY DEFINES AND MACROS header or it will be overwritten!
