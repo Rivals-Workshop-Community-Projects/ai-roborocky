@@ -3,6 +3,8 @@ if hitpause{
 	exit
 }
 
+ai_target_remaining_hitstun = get_ai_target_remaining_hitstun()
+
 xdisp = ai_target.x - x
 ydisp = ai_target.y - y
 xdist = abs(xdisp);
@@ -121,11 +123,25 @@ if state == PS_HITSTUN {
 	
 #endregion
 
-#define is_attack_fast_enough(this_attack, max_startup)
-	return this_attack.first_active_frame <= max_startup
+#define is_attack_usable_in_position(this_attack, player_obj)
+	if player_obj.free {
+		return is_attack_usable_air(this_attack)
+	} else {
+		return is_attack_usable_ground(this_attack)
+	}
+
+#define is_attack_usable_ground(this_attack)
+	return this_attack.category != 1
+
+#define is_attack_usable_air(this_attack)
+	return this_attack.category != 0
+
+#define get_attack_interaction_frames(this_attack)
+	return this_attack.first_active_frame - ai_target_remaining_hitstun
 
 
 #define my_attack_might_hit(this_attack)
+	// This is a quick heuristic to see if its worth checking for collisions.
 	// Assumes self is attacking ai_target.
 	return my_attack_might_hit_horizontally(this_attack) and my_attack_might_hit_vertically(this_attack)
 
