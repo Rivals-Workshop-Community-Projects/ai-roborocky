@@ -58,3 +58,13 @@ p_roll_away = [["hold_away_from_target", "press_parry"]]
 
 plan_timer = 0
 plan = p_do_nothing
+
+
+my_hit_left = 0
+my_hit_top = 0
+my_hit_right = 0
+my_hit_bottom = 0
+target_left = 0
+target_top = 0
+target_right = 0
+target_bottom = 0

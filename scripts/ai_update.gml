@@ -204,7 +204,25 @@ if state == PS_HITSTUN {
 			}
 		}
 	}
-	return(contacting_hitbox);
+	var target_radius_x = (ai_target.hurtboxID.bbox_right - ai_target.hurtboxID.bbox_left)/2
+	var target_radius_y = (ai_target.hurtboxID.bbox_bottom - ai_target.hurtboxID.bbox_top)/2
+
+	my_hit_left = hit_x - radius_x
+	my_hit_top = hit_y - radius_y
+	my_hit_right = hit_x + radius_x
+	my_hit_bottom = hit_y + radius_y
+	target_left = target_projected_pos[0]-target_radius_x
+	target_top = target_projected_pos[1]-2*target_radius_y
+	target_right = target_projected_pos[0]+target_radius_x
+	target_bottom = target_projected_pos[1]
+
+
+#define get_ai_target_remaining_hitstun()
+	if ai_target.state != PS_HITSTUN {
+		return 0	
+	} else {
+		return ai_target.hitstun_full - ai_target.state_timer
+	}
 
 #define learn
 	if(learning_frame < 1) return(false);

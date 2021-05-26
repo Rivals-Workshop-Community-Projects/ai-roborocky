@@ -21,3 +21,6 @@ while(represented_thinky_width + 48 < thinky_width) {
 draw_sprite_ext(thoughts_bubble, 3, thinky_x + 58 + represented_thinky_width, thinky_y, 2, 2, 0, thinky_col, thinky_alpha);
 
 draw_text_transformed(thinky_x + 33, thinky_y + 30, ai_thoughts, thinky_xscale, 1.5, 0);
+
+draw_rectangle_color(my_hit_left, my_hit_top, my_hit_right, my_hit_bottom, c_red, c_red, c_red, c_red, c_red)
+draw_rectangle_color(target_left, target_top, target_right, target_bottom, c_blue, c_blue, c_blue, c_blue, c_blue)
