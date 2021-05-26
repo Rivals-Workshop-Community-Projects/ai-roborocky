@@ -152,11 +152,11 @@ if state == PS_HITSTUN {
 		return [["tap_down"]]
 	} 
 	if state_cat == SC_GROUND_NEUTRAL {
-		// if state != PS_DASH and state != PS_DASH_START {
-		// 	return [["hold_towards_target", "tap_current_horizontal_direction"]] // For some reason sometimes they stay in idle and try to dash every frame. Maybe related to holding neutral.
-		// } else {
-		return [["hold_towards_target"]]
-		// }	
+		if state == PS_WALK { // Todo, this is flawed.
+			return [["hold_towards_target", "tap_current_horizontal_direction"]] // For some reason sometimes they stay in idle and try to dash every frame. Maybe related to holding neutral.
+		} else {
+			return [["hold_towards_target"]]
+		}	
 	}
 	
 
