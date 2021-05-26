@@ -19,12 +19,10 @@ if is_above_ground() {
 	unpress_jump()
 	unpress_actions()
 
-	existing_plan = do_plan()
-	if not existing_plan {
+	var has_existing_plan = do_plan() // If already doing a plan, dont even think, just do the steps. Possibly a bad idea.
+	if not has_existing_plan {
 		set_plan(get_plan())
 		do_plan()
-	} else {
-		// If already doing a plan, dont even think, just do the steps. Possibly a bad idea.
 	}
 }
 
@@ -183,7 +181,9 @@ if state == PS_HITSTUN {
 
 #define find_contacting_hitbox(this_attack, attacker, target, precise)
 	if(target.object_index == oPlayer || target.object_index == oTestPlayer) target = target.hurtboxID;
-	var fastest_hit = 9999, highest_priority = -1, contacting_hitbox = noone;
+	var fastest_hit = 9999;
+	var highest_priority = -1;
+	var contacting_hitbox = noone;
 	for(var hitbox_i = 0; hitbox_i < this_attack.hitboxes_count; hitbox_i++;) {
 		var this_hitbox = this_attack.hitboxes_array[hitbox_i];
 		// if(attacker.state_timer > this_hitbox.end_frame) continue;
@@ -326,7 +326,7 @@ if state == PS_HITSTUN {
 		
 		var paranoia = undefined
 		if attacker == self {
-			paranoia = 0.8
+			paranoia = 0.75
 		} else {
 			paranoia = 1.2
 		}
@@ -389,8 +389,8 @@ if state == PS_HITSTUN {
 			
 			var xpos = get_hitbox_value(study_index, analyze_hit_index, HG_HITBOX_X)
 			var ypos = get_hitbox_value(study_index, analyze_hit_index, HG_HITBOX_Y)
-			var radius_x =0.5 * get_hitbox_value(study_index, analyze_hit_index, HG_WIDTH)
-			var radius_y =0.5 * get_hitbox_value(study_index, analyze_hit_index, HG_HEIGHT)
+			var radius_x = 0.5 * get_hitbox_value(study_index, analyze_hit_index, HG_WIDTH)
+			var radius_y = 0.5 * get_hitbox_value(study_index, analyze_hit_index, HG_HEIGHT)
 
 			array_push(other.known_attacks[@attacker.player][@study_index].hitboxes_array, {
 				damage: get_hitbox_value(study_index, analyze_hit_index, HG_DAMAGE),
@@ -445,10 +445,12 @@ if state == PS_HITSTUN {
 			var remaining_waveland = wave_land_time - state_timer;
 		break;
 		case PS_WALK: case PS_DASH: case PS_DASH_START:
-			var frict = 0, grav = 0;
+			var frict = 0
+			var grav = 0;
 		break;
 		case PS_JUMPSQUAT:
-			var frict = ground_friction, grav = 0;
+			var frict = ground_friction;
+			var grav = 0;
 		break;
 		default:
 			var frict = free?air_friction:ground_friction;
@@ -891,10 +893,10 @@ if state == PS_HITSTUN {
 		case AT_FSTRONG:
 			return[["hold_neutral",	"hold_towards_target", "press_strong"]]
 		case AT_USTRONG:
-			return[["press_up", "hold_towards_target", "press_strong"]]
+			return[["press_up", "press_strong"]]
 		break
 		case AT_DSTRONG:
-			return[["press_down", "hold_towards_target", "press_strong"]]
+			return[["press_down", "press_strong"]]
 		break
 		case AT_FTILT:
 			return[["hold_neutral", "hold_towards_target", "press_attack"]]
