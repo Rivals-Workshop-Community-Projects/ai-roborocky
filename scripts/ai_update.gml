@@ -252,19 +252,31 @@ if state == PS_HITSTUN {
 		var target_radius_x = (target.bbox_right - target.bbox_left)/2
 		var target_radius_y = (target.bbox_bottom - target.bbox_top)/2
 
-		//If this hitbox's bounding box isn't right, this one doesn't matter
-		// var target_radius_x = target.sprite_width * 0.5, target_radius_y = target.sprite_height * 0.5;
-		// if(precise && ((hit_x - radius_x < target.x + target_radius_x) xor (hit_x + radius_x > target.x - target_radius_x)))
-		// 	continue;
-		var is_contacting = false
-		if precise {
-			if(this_hitbox.is_rectangle) {
-				is_contacting = collision_rectangle(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y, target, precise, false)
+			if draw {
+				array_push(other.rects_to_draw, {
+					left: hit_x - radius_x,
+					top: hit_y - radius_y,
+					right: hit_x + radius_x,
+					bottom: hit_y + radius_y,
+					color: c_orange
+				})
+				array_push(other.rects_to_draw, {
+					left: target_projected_pos[0]-target_radius_x,
+					top: target_projected_pos[1]-2*target_radius_y,
+					right: target_projected_pos[0]+target_radius_x,
+					bottom: target_projected_pos[1],
+					color: c_green
+				})
 			}
-			else {
-				is_contacting = collision_ellipse(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y, target, precise, false)
-			}
-		} else {
+
+			if precise {
+				if(this_hitbox.is_rectangle) {
+					is_contacting = collision_rectangle(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y, target, precise, false)
+				}
+				else {
+					is_contacting = collision_ellipse(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y, target, precise, false)
+				}
+			} else {
 			is_contacting = amount_of_rectangle_overlap(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y,
 			target_projected_pos[0]-target_radius_x, target_projected_pos[1]-2*target_radius_y, target_projected_pos[0]+target_radius_x, target_projected_pos[1])
 		}
@@ -293,15 +305,20 @@ if state == PS_HITSTUN {
 	var target_radius_x = (ai_target.hurtboxID.bbox_right - ai_target.hurtboxID.bbox_left)/2
 	var target_radius_y = (ai_target.hurtboxID.bbox_bottom - ai_target.hurtboxID.bbox_top)/2
 
-	my_hit_left = hit_x - radius_x
-	my_hit_top = hit_y - radius_y
-	my_hit_right = hit_x + radius_x
-	my_hit_bottom = hit_y + radius_y
-	target_left = target_projected_pos[0]-target_radius_x
-	target_top = target_projected_pos[1]-2*target_radius_y
-	target_right = target_projected_pos[0]+target_radius_x
-	target_bottom = target_projected_pos[1]
-
+	array_push(rects_to_draw, {
+		left: hit_x - radius_x,
+		top: hit_y - radius_y,
+		right: hit_x + radius_x,
+		bottom: hit_y + radius_y,
+		color: c_red
+	})
+	array_push(rects_to_draw, {
+		left: target_projected_pos[0]-target_radius_x,
+		top: target_projected_pos[1]-2*target_radius_y,
+		right: target_projected_pos[0]+target_radius_x,
+		bottom: target_projected_pos[1],
+		color: c_blue
+	})
 
 #define get_ai_target_remaining_hitstun()
 	if ai_target.state != PS_HITSTUN {
