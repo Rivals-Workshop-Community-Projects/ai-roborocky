@@ -62,7 +62,7 @@ if state == PS_HITSTUN {
 		var frames_to_impact = 9999
 		with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
 			if((state == PS_ATTACK_AIR || state == PS_ATTACK_GROUND) and knows_attack(other, player, attack)) {
-				var contacting_hitbox = find_contacting_hitbox(other.known_attacks[player][attack], id, other, true);
+				var contacting_hitbox = find_contacting_hitbox(other.known_attacks[player][attack], id, other, true)[0]
 				if(contacting_hitbox != noone) {
 					frames_to_impact = contacting_hitbox.frame - state_timer;			
 					other.ai_thoughts = `INCOMING IN ${frames_to_impact}!!!`;
@@ -145,7 +145,8 @@ if state == PS_HITSTUN {
 
 #define my_attack_might_hit_horizontally(this_attack)
 	var distance_moved = abs(hsp) * this_attack.last_active_frame // Todo take into account if moving *toward* or away from opponent
-	var effective_x_reach = this_attack.max_x_reach + distance_moved
+	var target_distance_moved = abs(ai_target.hsp) * this_attack.last_active_frame
+	var effective_x_reach = this_attack.max_x_reach + distance_moved + target_distance_moved
 	return xdist < effective_x_reach
 
 #define my_attack_might_hit_vertically(this_attack)
@@ -155,9 +156,6 @@ if state == PS_HITSTUN {
 		var effective_upward_reach = this_attack.max_upward_reach + arc_height
 		return effective_upward_reach > ydist
 	}
-
-#define get_best_attack(attacks)
-	return attacks[0] //todo
 
 #region LEARNING
 #define load_some_attack_data
@@ -180,6 +178,7 @@ if state == PS_HITSTUN {
 	
 
 #define find_contacting_hitbox(this_attack, attacker, target, precise)
+	var target_player = target
 	if(target.object_index == oPlayer || target.object_index == oTestPlayer) target = target.hurtboxID;
 	var fastest_hit = 9999;
 	var highest_priority = -1;
@@ -187,38 +186,61 @@ if state == PS_HITSTUN {
 	for(var hitbox_i = 0; hitbox_i < this_attack.hitboxes_count; hitbox_i++;) {
 		var this_hitbox = this_attack.hitboxes_array[hitbox_i];
 		// if(attacker.state_timer > this_hitbox.end_frame) continue;
-		
-		var time_until_hit = this_hitbox.frame - attacker.state_timer - 1;		
-		var attacker_projected_pos = get_my_projected_pos(time_until_hit);
 
-		// var attacker_projected_pos = get_projected_pos(attacker, time_until_hit, attacker.gravity_speed, attacker.max_fall);
-		var hit_x = attacker_projected_pos[0] + this_hitbox.xpos * spr_dir;
-		var hit_y = attacker_projected_pos[1] + this_hitbox.ypos;
-		var half_w = this_hitbox.radius_x * this_attack.paranoia, half_h = this_hitbox.radius_x * this_attack.paranoia;
-		
-		
 		//If the currently recorded hit has higher priority and is either faster or equal in speed, this one doesn't matter
 		if(highest_priority >= this_hitbox.priority && fastest_hit <= time_until_hit) continue;
-		
+
+		var time_until_hit = this_hitbox.frame - attacker.state_timer - 1;		
+		var attacker_projected_pos = get_my_projected_pos(time_until_hit);
+		var hit_x = attacker_projected_pos[0] + this_hitbox.xpos * spr_dir;
+		var hit_y = attacker_projected_pos[1] + this_hitbox.ypos;
+		var radius_x = this_hitbox.radius_x * this_attack.paranoia;
+		var radius_y = this_hitbox.radius_y * this_attack.paranoia;
+
+		var target_projected_pos = undefined
+		with oPlayer if self == target_player {
+			target_projected_pos = get_my_projected_pos(time_until_hit)
+		}
+		var target_radius_x = (target.bbox_right - target.bbox_left)/2
+		var target_radius_y = (target.bbox_bottom - target.bbox_top)/2
+
 		//If this hitbox's bounding box isn't right, this one doesn't matter
-		// var target_half_w = target.sprite_width * 0.5, target_half_h = target.sprite_height * 0.5;
-		// if(precise && ((hit_x - half_w < target.x + target_half_w) xor (hit_x + half_w > target.x - target_half_w)))
+		// var target_radius_x = target.sprite_width * 0.5, target_radius_y = target.sprite_height * 0.5;
+		// if(precise && ((hit_x - radius_x < target.x + target_radius_x) xor (hit_x + radius_x > target.x - target_radius_x)))
 		// 	continue;
-		
-		if(this_hitbox.is_rectangle) {
-			if(collision_rectangle(hit_x - half_w, hit_y - half_h, hit_x + half_w, hit_y + half_h, target, precise, false)) {
-				highest_priority = this_hitbox.priority;
-				fastest_hit = time_until_hit;
-				contacting_hitbox = this_hitbox;
+		var is_contacting = false
+		if precise {
+			if(this_hitbox.is_rectangle) {
+				is_contacting = collision_rectangle(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y, target, precise, false)
 			}
-		}
-		else {
-			if(collision_ellipse(hit_x - half_w, hit_y - half_h, hit_x + half_w, hit_y + half_h, target, precise, false)) {
-				highest_priority = this_hitbox.priority;
-				fastest_hit = time_until_hit;
-				contacting_hitbox = this_hitbox;
+			else {
+				is_contacting = collision_ellipse(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y, target, precise, false)
 			}
+		} else {
+			is_contacting = amount_of_rectangle_overlap(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y,
+			target_projected_pos[0]-target_radius_x, target_projected_pos[1]-2*target_radius_y, target_projected_pos[0]+target_radius_x, target_projected_pos[1])
 		}
+		if is_contacting {
+			highest_priority = this_hitbox.priority;
+			fastest_hit = time_until_hit;
+			contacting_hitbox = this_hitbox;
+		}
+	}
+	return [contacting_hitbox, is_contacting]
+
+#define update_hit_draw_info(best_attack)
+	var this_attack = known_attacks[player][best_attack]
+	var this_hitbox = find_contacting_hitbox(this_attack, id, ai_target, false)[0]
+	var time_until_hit = this_hitbox.frame - state_timer - 1;
+	var attacker_projected_pos = get_my_projected_pos(time_until_hit);
+	var hit_x = attacker_projected_pos[0] + this_hitbox.xpos * spr_dir;
+	var hit_y = attacker_projected_pos[1] + this_hitbox.ypos;
+	var radius_x = this_hitbox.radius_x * this_attack.paranoia;
+	var radius_y = this_hitbox.radius_y * this_attack.paranoia;
+
+	var target_projected_pos = undefined
+	with oPlayer if self == other.ai_target {
+		target_projected_pos = get_my_projected_pos(time_until_hit)
 	}
 	var target_radius_x = (ai_target.hurtboxID.bbox_right - ai_target.hurtboxID.bbox_left)/2
 	var target_radius_y = (ai_target.hurtboxID.bbox_bottom - ai_target.hurtboxID.bbox_top)/2
@@ -936,3 +958,32 @@ if state == PS_HITSTUN {
             default: var crash_var = 1/0 break; // Crash. Add more support for the number of arguments you need.
         }
     }
+
+#define amount_of_rectangle_overlap(left1, top1, right1, bottom1, left2, top2, right2, bottom2)
+// #define rectangle_in_rectangle(left1, top1, right1, bottom1, left2, top2, right2, bottom2)
+	var intersect_left = max(left1, left2)
+	var intersect_right = min(right1, right2)
+	if intersect_right < intersect_left {
+		return 0
+	}
+
+	var intersect_top = max(top1, top2)
+	var intersect_bottom = min(bottom1, bottom2)
+	if intersect_bottom < intersect_top {
+		return 0
+	}
+	
+	return (intersect_left-intersect_right) * (intersect_top-intersect_bottom)
+
+// vvv LIBRARY DEFINES AND MACROS vvv
+// DANGER File below this point will be overwritten! Generated defines and macros below.
+// Write NO-INJECT in a comment above this area to disable injection.
+#define prints // Version 0
+    // Prints each parameter to console, separated by spaces.
+    var _out_string = string(argument[0])
+    for (var i=1; i<argument_count; i++) {
+        _out_string += " "
+        _out_string += string(argument[i])
+    }
+    print(_out_string)
+// DANGER: Write your code ABOVE the LIBRARY DEFINES AND MACROS header or it will be overwritten!
