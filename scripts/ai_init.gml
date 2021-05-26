@@ -45,6 +45,10 @@ w_end_lag = 1/10
 
 maximum_safe_reaction_frames = 15 // Number of frames of startup its okay to allow the opponent to react. Anything more will be considered unsafe and not used.
 
+with oPlayer {
+	maximum_projected_movement_frames = 30
+}
+
 #region PLANS
 
 p_do_nothing = [[]]
