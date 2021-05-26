@@ -13,6 +13,10 @@ dist = point_distance(x, y, ai_target.x, ai_target.y)
 var upward_velocity = min(0, vsp)
 arc_height = (upward_velocity * upward_velocity) / (2*gravity_speed)
 
+with oPlayer {
+	proj_pos_cache = []
+}
+
 if is_above_ground() {
 // 	// Keep the ai steady so we can move it intentionally.
 	hold_neutral()
@@ -514,8 +518,8 @@ if state == PS_HITSTUN {
 #define knows_attack(ai, _player, _attack)
 	return ai.known_attacks[_player][_attack] != undefined
 
-
-#define get_my_projected_pos(time)
+#define update_projected_pos_cache
+	proj_pos_cache = []
 	//Assign friction and gravity
 	switch(state) {
 		case PS_ATTACK_AIR:
@@ -579,19 +583,35 @@ if state == PS_HITSTUN {
 	}
 	
 	//Simulate movement
-	var projected_pos = [x, y], projected_hsp = hsp, projected_vsp = vsp;
-	repeat(min(time, 40)) {
+	var last_projected_pos = [x, y]
+	var projected_hsp = hsp
+	var projected_vsp = vsp
+	for var time_i=0; time_i<maximum_projected_movement_frames; time_i++ {
 		if(state == PS_WAVELAND) {
 			remaining_waveland--;
-			if(remaining_waveland <= 0) return(projected_pos);
+			if(remaining_waveland <= 0){
+				projected_vsp = 0
+				projected_hsp = 0
+			} 
+		} else if(place_meeting(last_projected_pos[0], last_projected_pos[1], asset_get("par_block"))) {
+			projected_vsp = 0
 		}
-		if(place_meeting(projected_pos[0], projected_pos[1], asset_get("par_block"))) projected_vsp = 0;
-		projected_pos[0] += projected_hsp;
-		projected_pos[1] += projected_vsp;
+		
+		var projected_pos = [last_projected_pos[0] + projected_hsp, last_projected_pos[1] + projected_vsp]
+		array_push(proj_pos_cache, projected_pos)
+
 		projected_hsp -= sign(projected_hsp) * frict;
 		projected_vsp = min(max_fall, projected_vsp+grav)
+		last_projected_pos = projected_pos
 	}
-	return(projected_pos);
+	
+#define get_my_projected_pos(time)
+	if array_length(proj_pos_cache) == 0 {
+		update_projected_pos_cache()
+	}
+	time = floor(clamp(time, 0, maximum_projected_movement_frames-1))
+	return proj_pos_cache[time]
+	
 
 #endregion
 
