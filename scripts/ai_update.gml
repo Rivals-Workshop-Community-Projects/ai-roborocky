@@ -81,23 +81,71 @@ if state == PS_HITSTUN {
 
 	// Attack if opponent will be in range
 	// Currently this just takes the first attack it finds that will hit.
-	usable_attacks = []
-	for (var attack_i=0; attack_i<array_length(known_attacks[player]); attack_i++) {
-		var this_attack = known_attacks[player][attack_i]
-		if this_attack != undefined 
-				and array_length(this_attack.hitboxes_array) > 0
-				and is_attack_fast_enough(this_attack, maximum_safe_reaction_frames) 
-				and my_attack_might_hit(this_attack) 
-				and find_contacting_hitbox(this_attack, id, ai_target, true) != noone {
-			array_push(usable_attacks, attack_i)
+	if can_attack {
+		best_attack = undefined
+		best_score = -9999
+		for (var attack_i=0; attack_i<array_length(known_attacks[player]); attack_i++) {
+			var this_attack = known_attacks[player][attack_i]
+			if this_attack != undefined
+					and array_length(this_attack.hitboxes_array) > 0
+					and is_attack_usable_in_position(this_attack, self) {
+				var interaction_frames = get_attack_interaction_frames(this_attack)
+				if interaction_frames > maximum_safe_reaction_frames {
+					continue // Too slow, discard it.
+				}
+				if not my_attack_might_hit(this_attack) {
+					continue // No where near hitting
+				}
+				var contacting_hitbox_info = find_contacting_hitbox(this_attack, id, ai_target, false)
+				var contacting_hitbox = contacting_hitbox_info[0]
+				var contacting_hitbox_overlap = contacting_hitbox_info[1]
+				if contacting_hitbox == noone {
+					continue // Won't hit
+				}
+
+				var score = 0
+
+				if get_player_damage(ai_target.player) < 100 {
+					var damage_raw = this_attack.hitboxes_array[array_length(this_attack.hitboxes_array)-1].damage
+					var damage_score = damage_raw * w_damage
+					score += damage_score
+				}
+			
+				var hitbox_overlap_raw = contacting_hitbox_overlap
+				var hitbox_overlap_score = hitbox_overlap_raw * w_hitbox_overlap
+				score += hitbox_overlap_score
+				
+				var interaction_frames_raw = interaction_frames
+				var interaction_frames_score = -interaction_frames_raw * interaction_frames_raw * w_interaction_frames
+				score += interaction_frames_score
+
+				var start_lag_raw = this_attack.first_active_frame
+				var start_lag_score = -start_lag_raw * w_start_lag
+				score += interaction_frames_score
+
+				var miss_chance = abs(interaction_frames_score * start_lag_score)
+				var end_lag_raw = max(0, this_attack.full_duration - this_attack.last_active_frame) * miss_chance
+				var end_lag_score = -end_lag_raw * w_end_lag
+				score += end_lag_score
+
+				prints(get_attack_name(attack_i), "dmg", damage_score, "hit", hitbox_overlap_score, "interact", interaction_frames_score, "start", start_lag_score,
+					"end", end_lag_score, "final", score)
+				if score > 0 and score > best_score {
+					best_attack = attack_i
+					best_score = score
+				}
+			}
 		}
-	}
-	print(usable_attacks)
-	best_attack = get_best_attack(usable_attacks)
-	plan = get_attack_plan(attack_i)
-	ai_thoughts = `Using ${get_attack_name(attack_i)}`;
-	if plan != undefined {
-		// return plan
+		
+		plan = get_attack_plan(best_attack)
+		if plan != undefined {
+			ai_thoughts = `Using ${get_attack_name(best_attack)}`;
+
+
+			var this_attack = known_attacks[player][best_attack]
+			update_hit_draw_info(best_attack)
+			return plan
+		}
 	}
 
 	if state_cat == SC_AIR_NEUTRAL {
@@ -364,11 +412,16 @@ if state == PS_HITSTUN {
 			max_damage: 0,
 			first_active_frame: undefined,
 			last_active_frame: undefined,
+			full_duration: 0,
 			max_x_reach: 0,
 			max_upward_reach: 0,
 		};
 		
 		var windows_count = get_attack_value(study_index, AG_NUM_WINDOWS);
+		for (var window_i=1; window_i<windows_count+1; window_i++) {
+			other.known_attacks[@attacker.player][@study_index].full_duration += get_window_value(study_index, window_i, AG_WINDOW_LENGTH)
+		}
+		
 		//Prepare hitboxes array
 		var saved_count = 0, valid_count = 0, analyze_hit_index = 1, goal_hit_index = 1 + get_num_hitboxes(study_index);
 		while(valid_count < goal_hit_index - 1 && analyze_hit_index <= goal_hit_index + 3) {

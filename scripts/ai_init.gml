@@ -35,6 +35,11 @@ example_options = {
 	shorthop_peak: 0,
 };
 
+w_damage = 1 // Todo tune weights
+w_hitbox_overlap = 1/200
+w_interaction_frames = 1/35
+w_start_lag = 1/3
+w_end_lag = 1/10
 #endregion
 
 
