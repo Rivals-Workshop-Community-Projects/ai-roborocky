@@ -77,7 +77,7 @@ if state == PS_HITSTUN {
 			}
 		}
 	}
-	
+
 
 	// Attack if opponent will be in range
 	// Currently this just takes the first attack it finds that will hit.
@@ -223,7 +223,7 @@ if state == PS_HITSTUN {
 	} else {
 		currently_learning = false
 	}
-	
+
 
 #define find_contacting_hitbox(this_attack, attacker, target, precise)
 	var target_player = target
@@ -729,8 +729,18 @@ if state == PS_HITSTUN {
 	attack_pressed = false
 	special_down = false
 	special_pressed = false
-	strong_down = false
-	strong_pressed = false
+	
+	strong_down_pressed = false
+	strong_down_down = false
+	up_strong_pressed = false
+	up_strong_down = false
+	left_strong_pressed = false
+	left_strong_down = false
+	right_strong_pressed = false
+	right_strong_down = false
+	down_strong_pressed = false
+	down_strong_down = false
+
 	parry_pressed = false
 	parry_down = false
 	shield_pressed = false
@@ -748,8 +758,23 @@ if state == PS_HITSTUN {
 	
 #define press_strong()
 	unpress_actions()
-	strong_pressed = true
-	strong_down = true
+	if up_pressed{
+		up_strong_pressed = true
+		up_strong_down = true
+	}
+	if left_pressed {
+		left_strong_pressed = true
+		left_strong_down = true
+	}
+	if right_pressed {
+		right_strong_pressed = true
+		right_strong_down = true
+	}
+	if down_pressed {
+		down_strong_pressed = true
+		down_strong_down = true
+	}
+
 
 #define press_jump()
 	jump_pressed = true
