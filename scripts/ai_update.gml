@@ -3,7 +3,12 @@ if hitpause{
 	exit
 }
 
-ai_target_remaining_hitstun = get_ai_target_remaining_hitstun()
+with oPlayer {
+	crash_tracing = false
+	arc_height = get_peak_height(upward_velocity, gravity_speed)
+}
+
+ai_target_remaining_lag = get_ai_target_remaining_lag()
 
 xdisp = ai_target.x - x
 ydisp = ai_target.y - y
@@ -11,34 +16,38 @@ xdist = abs(xdisp);
 ydist = abs(ydisp);
 dist = point_distance(x, y, ai_target.x, ai_target.y)
 var upward_velocity = min(0, vsp)
-arc_height = (upward_velocity * upward_velocity) / (2*gravity_speed)
+
+var is_above_ground = get_is_above_ground()
 
 with oPlayer {
 	proj_pos_cache = []
 }
 
-if is_above_ground() {
-// 	// Keep the ai steady so we can move it intentionally.
+if not is_above_ground {
+	hold_toward_center()
+} else {
+	// 	Keep the ai steady so we can move it intentionally.
 	hold_neutral()
 	unpress_jump()
 	unpress_actions()
 
 	var has_existing_plan = do_plan() // If already doing a plan, dont even think, just do the steps. Possibly a bad idea.
 	if not has_existing_plan {
-		set_plan(get_plan())
+		var new_plan = get_plan()
+		set_plan(new_plan)
 		do_plan()
 	}
 }
 
 
-// Fastfall aerials
+// Hitfall aerials
 if contains([AT_FAIR, AT_NAIR, AT_BAIR, AT_UAIR, AT_DAIR], attack){
-	if (hitpause && is_above_ground()) {
+	if (hitpause && is_above_ground) {
         tap_down()
 	}
 }
 
-// Hitstun drift
+// Hitstun drift by mawral
 if state == PS_HITSTUN {
 	if ( xdist < 60 // if in reach of their attacks. Todo, actually get their reach rather than guessing?
 	and ((xdisp < 0 and 50 < x) or (0 < xdisp and x < room_width-50) )) { // and not near stage edge
@@ -57,107 +66,157 @@ if state == PS_HITSTUN {
 	if currently_learning {
 		return p_do_nothing
 	}
-	// ai_thoughts = `player 1s AT_FAIR has ${known_attacks[1, AT_FAIR].hitboxes_array[1].frame} hitboxes`;
-	if(debug_keyboard_pressed("1")) get_string("hi?", string(known_attacks[1, AT_FAIR].hitboxes_array));
-	
 
+	// can_shield = false
 	// Parry/Dodge coming attack
 	if can_shield and dist < 200 {
 		var hit_info = undefined
 		with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
 			if((state == PS_ATTACK_AIR || state == PS_ATTACK_GROUND) and knows_attack(other, player, attack)) {
-				hit_info = find_contacting_hitbox(other.known_attacks[player][attack], id, other, true, true)
+				hit_info = find_contacting_hitbox(other.known_attacks[player][attack], id, other)
 			}
 		}
-		if hit_info != undefined {
+
+		if hit_info != undefined and hit_info.contacting_hitbox != noone {
+			if crash_tracing print("start getting incoming hit")
 			ai_thoughts = `INCOMING IN ${hit_info.frames_until_hit}!!!`;
 			if hit_info.frames_until_hit <= 8 {
 				if hit_info.contacting_hitbox.can_be_charged {
 					return p_roll_away
 				} else {
-					return p_parry
+					if 2 >= hit_info.frames_until_hit {					
+						// No time to parry. Try running. Could also crouch. Very little can be done in 1-2 frames.
+						return [["hold_away_from_target", "tap_current_horizontal_direction"]] 
+					} else {
+						return p_parry	
+					}
+					
 				}
 			}
+			if crash_tracing print("end getting incoming hit")
 		}
+		
 	}
 
-
+	
 	// Attack if opponent will be in range
-	// Currently this just takes the first attack it finds that will hit.
 	if can_attack {
+		if crash_tracing print("Start getting attack plan")
 		best_attack = undefined
 		best_score = -9999
+		best_plan = undefined
 		for (var attack_i=0; attack_i<array_length(known_attacks[player]); attack_i++) {
-			var this_attack = known_attacks[player][attack_i]
+			var this_attack = known_attacks[player][attack_i]			
 			if this_attack != undefined
-					and array_length(this_attack.hitboxes_array) > 0
-					and is_attack_usable_in_position(this_attack, self) {
+				and array_length(this_attack.hitboxes_array) > 0
+				and is_attack_usable_in_position(this_attack, self) 
+			{	
+				var plan = get_attack_plan(attack_i)
+				if plan == undefined {
+					continue // We don't know how to do this attack yet. TODO support everything
+				}
 				var interaction_frames = get_attack_interaction_frames(this_attack)
 				if interaction_frames > maximum_safe_reaction_frames {
 					continue // Too slow, discard it.
 				}
+				
 				if not my_attack_might_hit(this_attack) {
 					continue // No where near hitting
 				}
-				var contacting_hitbox_info = find_contacting_hitbox(this_attack, id, ai_target, false, false)
-				if contacting_hitbox_info.contacting_hitbox == noone {
-					continue // Won't hit
+
+				var contacting_hitbox_info = find_contacting_hitbox(this_attack, id, ai_target)
+				if contacting_hitbox_info.closest_hitbox == noone {
+					continue // Nothing is remotely close
+				}
+				if contacting_hitbox_info.ydist {
+					continue // Too high for ground attack
+				}
+
+				var frames_to_walk = ceil(contacting_hitbox_info.xdist / walk_speed) // todo doesnt take walk startup + acceleration stuff into account if in idle
+				if frames_to_walk > maximum_setup_frames {
+					continue // Too far to walk
+				}
+				repeat(frames_to_walk) {
+					plan = array_push_start(plan, ["hold_towards_target"])
+				}
+	
+				interaction_frames += frames_to_walk
+				if interaction_frames > maximum_safe_reaction_frames { // This is done a second time. First is to short circuit and avoid doing hit detection when possible.
+					continue // Too slow, discard it.
 				}
 
 				var score = 0
 
-				if get_player_damage(ai_target.player) < 100 {
+				// if get_player_damage(ai_target.player) < 100 {
 					var damage_raw = this_attack.hitboxes_array[array_length(this_attack.hitboxes_array)-1].damage
 					var damage_score = damage_raw * w_damage
 					score += damage_score
-				}
+				// }
+				// Todo, later will devalue damage while at high percent, and instead think about comboing into finishers
 			
 				var hitbox_overlap_raw = contacting_hitbox_info.overlap
 				var hitbox_overlap_score = hitbox_overlap_raw * w_hitbox_overlap
 				score += hitbox_overlap_score
 				
 				var interaction_frames_raw = interaction_frames
-				var interaction_frames_score = -interaction_frames_raw * interaction_frames_raw * w_interaction_frames
+				var interaction_frames_score = -power(interaction_frames_raw, 2) * w_interaction_frames
 				score += interaction_frames_score
 
 				var start_lag_raw = this_attack.first_active_frame
 				var start_lag_score = -start_lag_raw * w_start_lag
 				score += interaction_frames_score
 
-				var miss_chance = abs(interaction_frames_score * start_lag_score)
+				var miss_chance_from_interaction_frames = clamp(interaction_frames_raw/20, 0, 1)
+				var miss_chance_from_start_lag = clamp(start_lag_raw/30, 0, 0.9)
+				// prints("interaction", interaction_frames_raw, miss_chance_from_interaction_frames, "start", start_lag_raw, miss_chance_from_start_lag)
+				var miss_chance = 1- (1-miss_chance_from_interaction_frames) * (1-miss_chance_from_start_lag) // Approaches 1
+
 				var end_lag_raw = max(0, this_attack.full_duration - this_attack.last_active_frame) * miss_chance
 				var end_lag_score = -end_lag_raw * w_end_lag
 				score += end_lag_score
 
-				// prints(get_attack_name(attack_i), "dmg", damage_score, "hit", hitbox_overlap_score, "interact", interaction_frames_score, "start", start_lag_score,
-				// 	"end", end_lag_score, "final", score)
+				var hit_result_info = get_hit_result(contacting_hitbox_info.closest_hitbox, ai_target)
+				var dest_x = hit_result_info.final_position[0]
+				var dest_dist_past_side_blastzone = max(-dest_x, dest_x-room_width)
+				var chance_to_kill_off_side_raw = clamp(dest_dist_past_side_blastzone/8 + 42, 0, 1)  // This includes attacks that leave them near the blastzone but not past it
+
+				var dest_dist_above_top_blastzone = hit_result_info.peak_height-room_height
+				if dest_dist_above_top_blastzone > 0 {
+					var chance_to_kill_off_top_raw = 0.25+clamp(0, dest_dist_above_top_blastzone/400, 0.75) //Nothing if less than blastzone, jumps to 25% after for no-di case.
+				}
+				var chance_to_kill_score = (chance_to_kill_off_side_raw+chance_to_kill_off_top_raw) * (1-miss_chance) * w_chance_to_kill
+
+				// Todo add distance below stage level for spikes
+
+				// prints(get_attack_name(attack_i), "dmg", damage_score, "overlap", hitbox_overlap_score, "interact", interaction_frames_score, "start", start_lag_score,
+				// 	"end", end_lag_score, "walks", frames_to_walk, "miss", miss_chance,
+				// 	"kill", chance_to_kill_score,
+				// 	 "final", score)
 				if score > 0 and score > best_score {
 					best_attack = attack_i
 					best_score = score
+					best_plan = plan
 				}
 			}
 		}
 		
-		plan = get_attack_plan(best_attack)
-		if plan != undefined {
-			ai_thoughts = `Using ${get_attack_name(best_attack)}`;
-
-
-			var this_attack = known_attacks[player][best_attack]
-			update_hit_draw_info(best_attack)
-			return plan
+		if best_attack != undefined {
+			ai_thoughts = `Using ${get_attack_name(best_attack)}`;		
+			return best_plan
 		}
+		if crash_tracing print("End getting attack plan")
 	}
 
 	if state_cat == SC_AIR_NEUTRAL {
 		return [["tap_down"]]
 	} 
-	if state_cat == SC_GROUND_NEUTRAL {
-		if state == PS_WALK { // Todo, this is flawed.
-			return [["hold_towards_target", "tap_current_horizontal_direction"]] // For some reason sometimes they stay in idle and try to dash every frame. Maybe related to holding neutral.
+	if !free and state_cat != SC_GROUND_COMMITTED {
+		// This is a weird sort of dash_glide that doesnt put into dash endlag but moves much faster than walking.
+		if xdist > 100 {
+			return [["hold_towards_target", "tap_current_horizontal_direction"], ["hold_towards_target"]]
 		} else {
 			return [["hold_towards_target"]]
-		}	
+		}
 	}
 
 #define set_plan(new_plan)
@@ -183,18 +242,18 @@ if state == PS_HITSTUN {
 	return this_attack.category != 0
 
 #define get_attack_interaction_frames(this_attack)
-	return this_attack.first_active_frame - ai_target_remaining_hitstun
+	return max(0, this_attack.first_active_frame - ai_target_remaining_lag)
 
 
 #define my_attack_might_hit(this_attack)
 	// This is a quick heuristic to see if its worth checking for collisions.
 	// Assumes self is attacking ai_target.
-	return my_attack_might_hit_horizontally(this_attack) and my_attack_might_hit_vertically(this_attack)
+	return my_attack_might_hit_vertically(this_attack) and my_attack_might_hit_horizontally(this_attack)
 
 #define my_attack_might_hit_horizontally(this_attack)
 	var distance_moved = abs(hsp) * this_attack.last_active_frame // Todo take into account if moving *toward* or away from opponent
 	var target_distance_moved = abs(ai_target.hsp) * this_attack.last_active_frame
-	var effective_x_reach = this_attack.max_x_reach + distance_moved + target_distance_moved
+	var effective_x_reach = this_attack.max_x_reach + distance_moved + target_distance_moved + walk_speed*maximum_setup_frames
 	return xdist < effective_x_reach
 
 #define my_attack_might_hit_vertically(this_attack)
@@ -225,9 +284,15 @@ if state == PS_HITSTUN {
 	}
 
 
-#define find_contacting_hitbox(this_attack, attacker, target, precise, draw)
-	var target_player = target
-	if(target.object_index == oPlayer || target.object_index == oTestPlayer) target = target.hurtboxID;
+#define find_contacting_hitbox(this_attack, attacker, _target)
+	if crash_tracing print("start find_contacting_hitbox")
+	var target_player = _target
+	if(_target.object_index == oPlayer || _target.object_index == oTestPlayer) {
+		var target_hurtbox = _target.hurtboxID
+	} else {
+		var target_hurtbox = _target
+	}
+
 	var highest_priority = -1;
 
 	if attacker.state == PS_ATTACK_AIR or attacker.state == PS_ATTACK_GROUND {
@@ -240,10 +305,15 @@ if state == PS_HITSTUN {
 		hit_frame: 9999,
 		frames_until_hit: 9999,
 		contacting_hitbox: noone,
+		closest_hitbox: noone,
 		overlap: 0, // The number of overlapping pixels when precise=false. Else just 1 for hits.
 		hit_scanning_frame: 0, // The frame of the hitbox when it will hit
+		xdist: 9999, // The closest a hitbox gets to contacting
+		ydist: 9999,
 	}
+
 	for(var hitbox_i = 0; hitbox_i < this_attack.hitboxes_count; hitbox_i++;) {
+		if crash_tracing prints("start hitbox", hitbox_i)
 		var this_hitbox = this_attack.hitboxes_array[hitbox_i];
 
 		var is_contacting = false
@@ -261,7 +331,7 @@ if state == PS_HITSTUN {
 			if hit_frame > this_hitbox.end_frame {
 				break // hitbox has ended
 			}
-			if scanning_frame > 60 {
+			if scanning_frame > 30 {
 				break // Too long...
 			}
 
@@ -275,89 +345,93 @@ if state == PS_HITSTUN {
 			with oPlayer if self == target_player {
 				target_projected_pos = get_my_projected_pos(hit_frame)
 			}
-			var target_radius_x = (target.bbox_right - target.bbox_left)/2
-			var target_radius_y = (target.bbox_bottom - target.bbox_top)/2
+			var target_radius_x = (target_hurtbox.bbox_right - target_hurtbox.bbox_left)/2
+			var target_radius_y = (target_hurtbox.bbox_bottom - target_hurtbox.bbox_top)/2
 
-			if draw {
-				array_push(other.rects_to_draw, {
-					left: hit_x - radius_x,
-					top: hit_y - radius_y,
-					right: hit_x + radius_x,
-					bottom: hit_y + radius_y,
-					color: c_orange
-				})
-				array_push(other.rects_to_draw, {
-					left: target_projected_pos[0]-target_radius_x,
-					top: target_projected_pos[1]-2*target_radius_y,
-					right: target_projected_pos[0]+target_radius_x,
-					bottom: target_projected_pos[1],
-					color: c_green
-				})
-			}
-
-			if precise {
-				if(this_hitbox.is_rectangle) {
-					is_contacting = collision_rectangle(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y, target, precise, false)
-				}
-				else {
-					is_contacting = collision_ellipse(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y, target, precise, false)
-				}
-			} else {
-			is_contacting = amount_of_rectangle_overlap(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y,
+			overlap_info = amount_of_rectangle_overlap(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y,
 			target_projected_pos[0]-target_radius_x, target_projected_pos[1]-2*target_radius_y, target_projected_pos[0]+target_radius_x, target_projected_pos[1])
-			}
-			if is_contacting {
+			if overlap_info.overlap {
+				is_contacting = true
 				highest_priority = this_hitbox.priority;
 				
 				hit_info.hit_frame = hit_frame
 				hit_info.frames_until_hit = hit_frame - frames_into_attack
 				hit_info.contacting_hitbox = this_hitbox
+				hit_info.closest_hitbox = this_hitbox
 				hit_info.hit_scanning_frame = scanning_frame
-				hit_info.overlap = is_contacting
+				hit_info.overlap = overlap_info.overlap
+				hit_info.xdist = 0
+				hit_info.ydist = 0
+			} else {
+				if (overlap_info.xdist + overlap_info.ydist) < (hit_info.xdist + hit_info.ydist) {
+					hit_info.closest_hitbox = this_hitbox
+				}
+				hit_info.xdist = min(hit_info.xdist, overlap_info.xdist)
+				hit_info.ydist = min(hit_info.ydist, overlap_info.ydist)
+				
 			}
-			scanning_frame += max(1, 12/speed)
+			scanning_frame += max(3, 15/speed) 
+			//	Possible optimization, could check last frame of hitbox and see if it either contacts or has moved past the opponent on either exis.
+			//		If not, no point in checking other times.
 		}
+		if crash_tracing prints("end hitbox", hitbox_i)
 	}
+	if crash_tracing print("end find_contacting_hitbox")
 	return hit_info
 
-#define update_hit_draw_info(best_attack)
-	var this_attack = known_attacks[player][best_attack]
-	var hit_info = find_contacting_hitbox(this_attack, id, ai_target, false, false)
-	var this_hitbox = hit_info.contacting_hitbox
-	var attacker_projected_pos = get_my_projected_pos(hit_info.frames_until_hit);
-	var hit_x = attacker_projected_pos[0] + this_hitbox.xpos * spr_dir;
-	var hit_y = attacker_projected_pos[1] + this_hitbox.ypos;
-	var radius_x = this_hitbox.radius_x * this_attack.paranoia;
-	var radius_y = this_hitbox.radius_y * this_attack.paranoia;
 
-	var target_projected_pos = undefined
-	with oPlayer if self == other.ai_target {
-		target_projected_pos = get_my_projected_pos(hit_info.frames_until_hit)
+#define get_hit_result(hitbox, target)
+	var global_kb_scale = 0.12
+	var opponent_damage_after_hit = get_player_damage(target.player) + hitbox.damage
+	
+	var hitstun = 4 * (hitbox.kb_value * (((target.knockback_adj - 1) * 0.6) + 1))
+				 + (opponent_damage_after_hit * 0.12 * hitbox.kb_scale * 0.65 * target.knockback_adj)
+
+	var knockback = hitbox.kb_value + (hitbox.kb_scale * target.knockback_adj * opponent_damage_after_hit * global_kb_scale)
+
+	var kb_x = lengthdir_x(knockback, hitbox.kb_angle)
+	var kb_y = lengthdir_y(knockback, hitbox.kb_angle)
+	
+	if !target.free and kb_y > 0 { // They're hit down while on the ground, so they bounce up.
+		kb_y = -kb_y / 2
 	}
-	var target_radius_x = (ai_target.hurtboxID.bbox_right - ai_target.hurtboxID.bbox_left)/2
-	var target_radius_y = (ai_target.hurtboxID.bbox_bottom - ai_target.hurtboxID.bbox_top)/2
 
-	array_push(rects_to_draw, {
-		left: hit_x - radius_x,
-		top: hit_y - radius_y,
-		right: hit_x + radius_x,
-		bottom: hit_y + radius_y,
-		color: c_red
-	})
-	array_push(rects_to_draw, {
-		left: target_projected_pos[0]-target_radius_x,
-		top: target_projected_pos[1]-2*target_radius_y,
-		right: target_projected_pos[0]+target_radius_x,
-		bottom: target_projected_pos[1],
-		color: c_blue
-	})
-
-#define get_ai_target_remaining_hitstun()
-	if ai_target.state != PS_HITSTUN {
-		return 0	
+	if kb_y < 0 {
+		var peak_height = get_peak_height(kb_y, target.hitstun_grav)
 	} else {
-		return ai_target.hitstun_full - ai_target.state_timer
+		var peak_height = 0
 	}
+	var dest_x = target.x + kb_x*hitstun
+	var dest_y = target.y + kb_y*hitstun - 0.5*target.hitstun_grav*power(hitstun, 2)
+
+	// Todo handle stage height
+
+	var upward_knockback = max(0, lengthdir_y(1, hitbox.kb_angle)) * knockback
+
+	var hit_result_info = {
+		hitstun: hitstun,
+		peak_height: peak_height,
+		final_position: [dest_x, dest_y],
+	}
+	return hit_result_info
+
+
+#define get_ai_target_remaining_lag()
+	if ai_target.state != PS_HITSTUN {
+		var hitstun = 0
+	} else {
+		var hitstun = ai_target.hitstun_full - ai_target.state_timer
+	}
+
+	if ai_target.state == PS_PRATLAND or ai_target.state == PS_PRATFALL {
+		var prat_lag = 30 // Todo, would like to get real amount of remaining parry lag
+	} else {
+		var prat_lag = 0
+	}
+
+	return max(0, hitstun, prat_lag)
+
+
 
 #define learn
 	if(learning_frame < 1) return(false);
@@ -518,8 +592,14 @@ if state == PS_HITSTUN {
 
 			array_push(other.known_attacks[@attacker.player][@study_index].hitboxes_array, {
 				damage: get_hitbox_value(study_index, analyze_hit_index, HG_DAMAGE),
+
 				priority: get_hitbox_value(study_index, analyze_hit_index, HG_PRIORITY),
 				is_rectangle: get_hitbox_value(study_index, analyze_hit_index, HG_SHAPE) != 0,
+				kb_angle: get_hitbox_value(study_index, analyze_hit_index, HG_ANGLE),
+				kb_value: get_hitbox_value(study_index, analyze_hit_index, HG_BASE_KNOCKBACK),
+				kb_scale: get_hitbox_value(study_index, analyze_hit_index, HG_KNOCKBACK_SCALING),
+				hitstun_factor: get_hitbox_value(study_index, analyze_hit_index, HG_HITSTUN_MULTIPLIER),
+
 				radius_x: radius_x,
 				radius_y: radius_y,
 				xpos: xpos,
@@ -532,7 +612,7 @@ if state == PS_HITSTUN {
 			var x_reach = xpos + radius_x
 			other.known_attacks[@attacker.player][@study_index].max_x_reach = max(x_reach, other.known_attacks[@attacker.player][@study_index].max_x_reach)
 
-			var upward_reach = -ypos + radius_y
+			var upward_reach = -ypos - radius_y
 			other.known_attacks[@attacker.player][@study_index].max_upward_reach = max(upward_reach, other.known_attacks[@attacker.player][@study_index].max_upward_reach)
 			
 			saved_count++; valid_count++; analyze_hit_index++;
@@ -543,6 +623,10 @@ if state == PS_HITSTUN {
 		
 	}
 
+#define get_peak_height(upward_velocity, _gravity)
+	return power(upward_velocity,2) / (2*_gravity)
+
+
 #define knows_attack(ai, _player, _attack)
 	return ai.known_attacks[_player][_attack] != undefined
 
@@ -552,33 +636,33 @@ if state == PS_HITSTUN {
 	switch(state) {
 		case PS_ATTACK_AIR:
 			var frict = "attacking";
-			var grav = "attacking";
+			var _grav = "attacking";
 			
 		break;
 		case PS_ATTACK_GROUND:
 			var frict = "attacking";
-			var grav = 0;
+			var _grav = 0;
 		break;
 		case PS_HITSTUN:
 			var frict = air_friction;
-			var grav = hitstun_grav;
+			var _grav = hitstun_grav;
 		break;
 		case PS_WAVELAND:
 			var frict = wave_friction;
-			var grav = 0;
+			var _grav = 0;
 			var remaining_waveland = wave_land_time - state_timer;
 		break;
 		case PS_WALK: case PS_DASH: case PS_DASH_START:
 			var frict = 0
-			var grav = 0;
+			var _grav = 0;
 		break;
 		case PS_JUMPSQUAT:
 			var frict = ground_friction;
-			var grav = 0;
+			var _grav = 0;
 		break;
 		default:
 			var frict = free?air_friction:ground_friction;
-			var grav = free?gravity_speed:0;
+			var _grav = free?gravity_speed:0;
 		break;
 	}
 	
@@ -601,13 +685,13 @@ if state == PS_HITSTUN {
 				frict = ground_friction;
 		}
 	}
-	if(grav == "attacking") {
+	if(_grav == "attacking") {
 		if(get_window_value(attack, window, AG_WINDOW_VSPEED_TYPE) == 1)
-			grav = 0;
+			_grav = 0;
 		else if(get_attack_value(attack, AG_USES_CUSTOM_GRAVITY))
-			grav = get_window_value(attack, window, AG_WINDOW_CUSTOM_GRAVITY);
+			_grav = get_window_value(attack, window, AG_WINDOW_CUSTOM_GRAVITY);
 		else
-			grav = gravity_speed;
+			_grav = gravity_speed;
 	}
 	
 	//Simulate movement
@@ -629,7 +713,7 @@ if state == PS_HITSTUN {
 		array_push(proj_pos_cache, projected_pos)
 
 		projected_hsp -= sign(projected_hsp) * frict;
-		projected_vsp = min(max_fall, projected_vsp+grav)
+		projected_vsp = min(max_fall, projected_vsp+_grav)
 		last_projected_pos = projected_pos
 	}
 	
@@ -677,7 +761,7 @@ if state == PS_HITSTUN {
     }
     return false
     
-#define is_above_ground() 
+#define get_is_above_ground() 
 	return collision_line(x, y, x, room_height, asset_get("par_block"), 0, 1) > 0;
 
 #region inputs
@@ -707,7 +791,7 @@ if state == PS_HITSTUN {
 	unpress_down()
 
 #define hold_toward_center
-	var center_dir = sign(x - room_width / 2);
+	var center_dir = -sign(x - room_width / 2);
 	hold_toward_direction(center_dir)
 
 #define tap_current_horizontal_direction
@@ -1106,17 +1190,31 @@ if state == PS_HITSTUN {
 // #define rectangle_in_rectangle(left1, top1, right1, bottom1, left2, top2, right2, bottom2)
 	var intersect_left = max(left1, left2)
 	var intersect_right = min(right1, right2)
-	if intersect_right < intersect_left {
-		return 0
-	}
 
 	var intersect_top = max(top1, top2)
 	var intersect_bottom = min(bottom1, bottom2)
-	if intersect_bottom < intersect_top {
-		return 0
+	if intersect_right < intersect_left or intersect_bottom < intersect_top {
+		return {
+			overlap: 0,
+			xdist: max(0, intersect_left - intersect_right),
+			ydist: max(0, intersect_top - intersect_bottom),
+		}
 	}
-	
-	return (intersect_left-intersect_right) * (intersect_top-intersect_bottom)
+
+	var overlap = (intersect_left-intersect_right) * (intersect_top-intersect_bottom)
+	return {
+		overlap: overlap,
+		xdist: 0,
+		ydist: 0,
+	}
+
+#define array_push_start(arr, val)
+	var new_arr = [val]
+	for (var i=0; i<array_length(arr); i++) {
+        array_push(new_arr, arr[i])
+    }
+    return new_arr;
+
 
 // vvv LIBRARY DEFINES AND MACROS vvv
 // DANGER File below this point will be overwritten! Generated defines and macros below.
