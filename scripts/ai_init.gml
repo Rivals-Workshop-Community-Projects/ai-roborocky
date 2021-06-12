@@ -32,7 +32,7 @@ example_options = {
 	jump_height_frames: [],
 	jump_peak: 0,
 	shorthop_height_frames: [],
-	shorthop_peak: 0,
+	shorthop_peak: 0
 };
 
 w_damage = 1 // Todo tune weights

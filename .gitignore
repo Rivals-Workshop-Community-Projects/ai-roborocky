@@ -1,3 +1,16 @@
 *backups/
 assistant/
 #config/properties.json
+.idea/.gitignore
+.idea/misc.xml
+.idea/modules.xml
+.idea/robo_rocky.iml
+.idea/vcs.xml
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/inspectionProfiles/Project_Default.xml
+.idea/sonarlint/issuestore/index.pb
+.idea/sonarlint/issuestore/8/e/8ec9a00bfd09b3190ac6b22251dbb1aa95a0579d
+.idea/sonarlint/issuestore/d/b/db712f52ace13d39c40cb9e02af11bc23145d167
+.idea/sonarlint/issuestore/e/f/efdb2e0268409dba9f867fc1efaf51bed3e1b461
+.idea/sonarlint/issuestore/f/3/f304b43a38ee1100d704075e03813e0afedf55c0
+.gitignore

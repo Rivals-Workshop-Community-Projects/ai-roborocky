@@ -296,7 +296,7 @@ if state == PS_HITSTUN {
 	var highest_priority = -1;
 
 	if attacker.state == PS_ATTACK_AIR or attacker.state == PS_ATTACK_GROUND {
-		var frames_into_attack = attacker.state_timer-1
+		var frames_into_attack = attacker.state_timer
 	} else {
 		var frames_into_attack = 0
 	}
@@ -322,52 +322,57 @@ if state == PS_HITSTUN {
 		var speed = abs(hsp) + abs(vsp)
 		while not is_contacting and scanning_frame < duration {
 			var hit_frame = this_hitbox.frame + scanning_frame
-			if frames_into_attack > hit_frame {
-				break // already past this point in the attack
-			}
-			if highest_priority >= this_hitbox.priority && hit_info.hit_frame <= hit_frame{
-				break // currently recorded hit has higher priority and equal or greater speed, overruling this one
-			} 
-			if hit_frame > this_hitbox.end_frame {
-				break // hitbox has ended
-			}
-			if scanning_frame > 30 {
-				break // Too long...
-			}
-
-			var attacker_projected_pos = get_my_projected_pos(hit_frame);
-			var hit_x = attacker_projected_pos[0] + this_hitbox.xpos * spr_dir;
-			var hit_y = attacker_projected_pos[1] + this_hitbox.ypos;
-			var radius_x = this_hitbox.radius_x * this_attack.paranoia;
-			var radius_y = this_hitbox.radius_y * this_attack.paranoia;
-
-			var target_projected_pos = undefined
-			with oPlayer if self == target_player {
-				target_projected_pos = get_my_projected_pos(hit_frame)
-			}
-			var target_radius_x = (target_hurtbox.bbox_right - target_hurtbox.bbox_left)/2
-			var target_radius_y = (target_hurtbox.bbox_bottom - target_hurtbox.bbox_top)/2
-
-			overlap_info = amount_of_rectangle_overlap(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y,
-			target_projected_pos[0]-target_radius_x, target_projected_pos[1]-2*target_radius_y, target_projected_pos[0]+target_radius_x, target_projected_pos[1])
-			if overlap_info.overlap {
-				is_contacting = true
-				highest_priority = this_hitbox.priority;
-				
-				hit_info.hit_frame = hit_frame
-				hit_info.frames_until_hit = hit_frame - frames_into_attack
-				hit_info.contacting_hitbox = this_hitbox
-				hit_info.closest_hitbox = this_hitbox
-				hit_info.hit_scanning_frame = scanning_frame
-				hit_info.overlap = overlap_info.overlap
-				hit_info.xdist = 0
-				hit_info.ydist = 0
-			} else {
-				if (overlap_info.xdist + overlap_info.ydist) < (hit_info.xdist + hit_info.ydist) {
-					hit_info.closest_hitbox = this_hitbox
+			var frames_until_hit = hit_frame-frames_into_attack
+			if frames_until_hit >= 0 { // If this point hasn't already happened
+				if frames_into_attack > hit_frame {
+					break // already past this point in the attack
 				}
-				hit_info.xdist = min(hit_info.xdist, overlap_info.xdist)
-				hit_info.ydist = min(hit_info.ydist, overlap_info.ydist)
+				if highest_priority >= this_hitbox.priority && hit_info.hit_frame <= hit_frame{
+					break // currently recorded hit has higher priority and equal or greater speed, overruling this one
+				} 
+				if hit_frame > this_hitbox.end_frame {
+					break // hitbox has ended
+				}
+				if scanning_frame > 30 {
+					break // Too long...
+				}
+	
+				var attacker_projected_pos = get_my_projected_pos(frames_until_hit);
+				var hit_x = attacker_projected_pos[0] + this_hitbox.xpos * spr_dir;
+				var hit_y = attacker_projected_pos[1] + this_hitbox.ypos;
+				var radius_x = this_hitbox.radius_x * this_attack.paranoia;
+				var radius_y = this_hitbox.radius_y * this_attack.paranoia;
+	
+				var target_projected_pos = undefined
+				with oPlayer if self == target_player {
+					target_projected_pos = get_my_projected_pos(frames_until_hit)
+				}
+				var target_radius_x = (target_hurtbox.bbox_right - target_hurtbox.bbox_left)/2
+				var target_radius_y = (target_hurtbox.bbox_bottom - target_hurtbox.bbox_top)/2
+	
+				overlap_info = amount_of_rectangle_overlap(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y,
+				target_projected_pos[0]-target_radius_x, target_projected_pos[1]-2*target_radius_y, target_projected_pos[0]+target_radius_x, target_projected_pos[1])
+				if overlap_info.overlap {
+					is_contacting = true
+					highest_priority = this_hitbox.priority;
+					
+					hit_info.hit_frame = hit_frame
+					hit_info.frames_until_hit = hit_frame - frames_into_attack
+					hit_info.contacting_hitbox = this_hitbox
+					hit_info.closest_hitbox = this_hitbox
+					hit_info.hit_scanning_frame = scanning_frame
+					hit_info.overlap = overlap_info.overlap
+					hit_info.xdist = 0
+					hit_info.ydist = 0
+				} else {
+					if (overlap_info.xdist + overlap_info.ydist) < (hit_info.xdist + hit_info.ydist) {
+						hit_info.closest_hitbox = this_hitbox
+					}
+					hit_info.xdist = min(hit_info.xdist, overlap_info.xdist)
+					hit_info.ydist = min(hit_info.ydist, overlap_info.ydist)
+					
+				}
+			
 				
 			}
 			scanning_frame += max(3, 15/speed) 
@@ -1214,7 +1219,6 @@ if state == PS_HITSTUN {
         array_push(new_arr, arr[i])
     }
     return new_arr;
-
 
 // vvv LIBRARY DEFINES AND MACROS vvv
 // DANGER File below this point will be overwritten! Generated defines and macros below.
