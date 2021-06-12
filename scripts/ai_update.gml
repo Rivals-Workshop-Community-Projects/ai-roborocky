@@ -115,11 +115,12 @@ if state == PS_HITSTUN {
 				if plan == undefined {
 					continue // We don't know how to do this attack yet. TODO support everything
 				}
+
 				var interaction_frames = get_attack_interaction_frames(this_attack)
 				if interaction_frames > maximum_safe_reaction_frames {
 					continue // Too slow, discard it.
 				}
-				
+
 				if not my_attack_might_hit(this_attack) {
 					continue // No where near hitting
 				}
@@ -128,6 +129,7 @@ if state == PS_HITSTUN {
 				if contacting_hitbox_info.closest_hitbox == noone {
 					continue // Nothing is remotely close
 				}
+
 				if contacting_hitbox_info.ydist {
 					continue // Too high for ground attack
 				}
@@ -147,30 +149,26 @@ if state == PS_HITSTUN {
 
 				var score = 0
 
+				if interaction_frames <= 0 {
+					var chance_of_interferance = 0
+				} else {
+					var chance_of_interferance = 0.1*ease_linear(3, 10, floor(interaction_frames), 15) // 1 frame -> 30% chance, 15 frames -> 100% chance
+				}
+				
+				var start_lag = this_attack.first_active_frame
+				var drift_speed = 1 // guessing 1px per frame
+				var drift_required = sqrt(contacting_hitbox_info.overlap)
+				var drift_time_required = ceil(drift_required / drift_speed)
+				var drift_out_chance = max(0, ease_linear(0, 1, start_lag-drift_time_required, 15)) // If they have 0ish frames to drift out-> 0% chance of evastion, 15 frames -> 100% chance
+				var miss_chance = 1 - (1-chance_of_interferance) * (1-drift_out_chance)
+
 				// if get_player_damage(ai_target.player) < 100 {
-					var damage_raw = this_attack.hitboxes_array[array_length(this_attack.hitboxes_array)-1].damage
+					var damage_raw = this_attack.hitboxes_array[array_length(this_attack.hitboxes_array)-1].damage * (1-miss_chance)
 					var damage_score = damage_raw * w_damage
 					score += damage_score
 				// }
 				// Todo, later will devalue damage while at high percent, and instead think about comboing into finishers
 			
-				var hitbox_overlap_raw = contacting_hitbox_info.overlap
-				var hitbox_overlap_score = hitbox_overlap_raw * w_hitbox_overlap
-				score += hitbox_overlap_score
-				
-				var interaction_frames_raw = interaction_frames
-				var interaction_frames_score = -power(interaction_frames_raw, 2) * w_interaction_frames
-				score += interaction_frames_score
-
-				var start_lag_raw = this_attack.first_active_frame
-				var start_lag_score = -start_lag_raw * w_start_lag
-				score += interaction_frames_score
-
-				var miss_chance_from_interaction_frames = clamp(interaction_frames_raw/20, 0, 1)
-				var miss_chance_from_start_lag = clamp(start_lag_raw/30, 0, 0.9)
-				// prints("interaction", interaction_frames_raw, miss_chance_from_interaction_frames, "start", start_lag_raw, miss_chance_from_start_lag)
-				var miss_chance = 1- (1-miss_chance_from_interaction_frames) * (1-miss_chance_from_start_lag) // Approaches 1
-
 				var end_lag_raw = max(0, this_attack.full_duration - this_attack.last_active_frame) * miss_chance
 				var end_lag_score = -end_lag_raw * w_end_lag
 				score += end_lag_score
@@ -185,11 +183,10 @@ if state == PS_HITSTUN {
 					var chance_to_kill_off_top_raw = 0.25+clamp(0, dest_dist_above_top_blastzone/400, 0.75) //Nothing if less than blastzone, jumps to 25% after for no-di case.
 				}
 				var chance_to_kill_score = (chance_to_kill_off_side_raw+chance_to_kill_off_top_raw) * (1-miss_chance) * w_chance_to_kill
-
+				score += chance_to_kill_score
 				// Todo add distance below stage level for spikes
 
-				// prints(get_attack_name(attack_i), "dmg", damage_score, "overlap", hitbox_overlap_score, "interact", interaction_frames_score, "start", start_lag_score,
-				// 	"end", end_lag_score, "walks", frames_to_walk, "miss", miss_chance,
+				// prints(get_attack_name(attack_i), "dmg", damage_score, "end", end_lag_score, "walks", frames_to_walk, "miss", miss_chance,
 				// 	"kill", chance_to_kill_score,
 				// 	 "final", score)
 				if score > 0 and score > best_score {
@@ -259,8 +256,9 @@ if state == PS_HITSTUN {
 #define my_attack_might_hit_vertically(this_attack)
 	if ydisp >= 0 {
 		return true // Just assuming fastfalling will be enough.
-	} else {	
-		var effective_upward_reach = this_attack.max_upward_reach + arc_height
+	} else {
+		var target_distance_moved = abs(ai_target.vsp) * this_attack.last_active_frame
+		var effective_upward_reach = this_attack.max_upward_reach + arc_height + target_distance_moved // Todo add jumping upwards for it
 		return effective_upward_reach > ydist
 	}
 
@@ -617,7 +615,7 @@ if state == PS_HITSTUN {
 			var x_reach = xpos + radius_x
 			other.known_attacks[@attacker.player][@study_index].max_x_reach = max(x_reach, other.known_attacks[@attacker.player][@study_index].max_x_reach)
 
-			var upward_reach = -ypos - radius_y
+			var upward_reach = -ypos + radius_y
 			other.known_attacks[@attacker.player][@study_index].max_upward_reach = max(upward_reach, other.known_attacks[@attacker.player][@study_index].max_upward_reach)
 			
 			saved_count++; valid_count++; analyze_hit_index++;
