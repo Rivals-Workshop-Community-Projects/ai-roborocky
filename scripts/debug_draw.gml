@@ -1,4 +1,6 @@
+exit
 if(!is_ai) exit;
+
 with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
 	var projected_pos = get_my_projected_pos(8)
 	draw_sprite_ext(sprite_index, image_index, projected_pos[0], projected_pos[1], spr_dir, 1, 0, c_lime, get_gameplay_time() % 2 == 0?0.6:0.7)

@@ -6,6 +6,8 @@ if hitpause{
 with oPlayer {
 	crash_tracing = false
 	arc_height = get_peak_height(upward_velocity, gravity_speed)
+	
+	did_work = 0
 }
 
 ai_target_remaining_lag = get_ai_target_remaining_lag()
@@ -28,12 +30,19 @@ if not is_above_ground {
 } else {
 	// 	Keep the ai steady so we can move it intentionally.
 	hold_neutral()
+	hold_neutral_stick()
 	unpress_jump()
 	unpress_actions()
 
 	var has_existing_plan = do_plan() // If already doing a plan, dont even think, just do the steps. Possibly a bad idea.
 	if not has_existing_plan {
 		var new_plan = get_plan()
+		
+		//Todo remove
+		get_plan()
+		get_plan()
+		get_plan()
+		
 		set_plan(new_plan)
 		do_plan()
 	}
@@ -59,6 +68,9 @@ if state == PS_HITSTUN {
 		ai_thoughts = "Drifting to center"  
 	}
 }
+
+
+prints("Did work",get_gameplay_time(), player, did_work)
 
 
 #region PLANNING
@@ -95,16 +107,15 @@ if state == PS_HITSTUN {
 			}
 			if crash_tracing print("end getting incoming hit")
 		}
-		
 	}
 
-	
 	// Attack if opponent will be in range
 	if can_attack {
 		if crash_tracing print("Start getting attack plan")
 		best_attack = undefined
 		best_score = -9999
 		best_plan = undefined
+		var options_checked = list()
 		for (var attack_i=0; attack_i<array_length(known_attacks[player]); attack_i++) {
 			var this_attack = known_attacks[player][attack_i]			
 			if this_attack != undefined
@@ -116,75 +127,88 @@ if state == PS_HITSTUN {
 					continue // We don't know how to do this attack yet. TODO support everything
 				}
 
-				var interaction_frames = get_attack_interaction_frames(this_attack)
+				// Rough heuristic to throw away obviously unsafe attacks
+				var interaction_frames = get_attack_interaction_frames(this_attack) 
 				if interaction_frames > maximum_safe_reaction_frames {
 					continue // Too slow, discard it.
 				}
 
-				if not my_attack_might_hit(this_attack) {
-					continue // No where near hitting
-				}
+				// Rough heuristic to throw away obviously out of range attacks
+				// if not my_attack_might_hit(this_attack) {
+				// 	continue // No where near hitting
+				// } // TODO READD
+
+				if !free {
+					continue
+				} // TODO REMOVE
 
 				var contacting_hitbox_info = find_contacting_hitbox(this_attack, id, ai_target)
-				if contacting_hitbox_info.closest_hitbox == noone {
-					continue // Nothing is remotely close
-				}
+				// if contacting_hitbox_info.closest_hitbox == noone {
+				// 	continue // Nothing is remotely close
+				// }
 
-				if contacting_hitbox_info.ydist {
-					continue // Too high for ground attack
-				}
+				// if contacting_hitbox_info.ydist {
+				// 	continue // Too high for ground attack
+				// }
 
-				var frames_to_walk = ceil(contacting_hitbox_info.xdist / walk_speed) // todo doesnt take walk startup + acceleration stuff into account if in idle
-				if frames_to_walk > maximum_setup_frames {
-					continue // Too far to walk
-				}
-				repeat(frames_to_walk) {
-					plan = array_push_start(plan, ["hold_towards_target"])
-				}
+				// var frames_to_walk = ceil(contacting_hitbox_info.xdist / walk_speed) // todo doesnt take walk startup + acceleration stuff into account if in idle
+				// if frames_to_walk > maximum_setup_frames {
+				// 	continue // Too far to walk
+				// }
+				// repeat(frames_to_walk) {
+				// 	plan = array_push_start(plan, ["hold_towards_target"])
+				// }
 	
-				interaction_frames += frames_to_walk
-				if interaction_frames > maximum_safe_reaction_frames { // This is done a second time. First is to short circuit and avoid doing hit detection when possible.
-					continue // Too slow, discard it.
-				}
+				// interaction_frames += frames_to_walk
+				// if interaction_frames > maximum_safe_reaction_frames { // This is done a second time. First is to short circuit and avoid doing hit detection when possible.
+				// 	continue // Too slow, discard it.
+				// }
 
 				var score = 0
 
-				if interaction_frames <= 0 {
-					var chance_of_interferance = 0
-				} else {
-					var chance_of_interferance = 0.1*ease_linear(3, 10, floor(interaction_frames), 15) // 1 frame -> 30% chance, 15 frames -> 100% chance
-				}
-				
-				var start_lag = this_attack.first_active_frame
-				var drift_speed = 1 // guessing 1px per frame
-				var drift_required = sqrt(contacting_hitbox_info.overlap)
-				var drift_time_required = ceil(drift_required / drift_speed)
-				var drift_out_chance = max(0, ease_linear(0, 1, start_lag-drift_time_required, 15)) // If they have 0ish frames to drift out-> 0% chance of evastion, 15 frames -> 100% chance
-				var miss_chance = 1 - (1-chance_of_interferance) * (1-drift_out_chance)
-
-				// if get_player_damage(ai_target.player) < 100 {
-					var damage_raw = this_attack.hitboxes_array[array_length(this_attack.hitboxes_array)-1].damage * (1-miss_chance)
-					var damage_score = damage_raw * w_damage
-					score += damage_score
+				// if interaction_frames <= 0 {
+				// 	var chance_of_interferance = 0
+				// } else {
+				// 	var chance_of_interferance = 0.1*ease_linear(3, 10, floor(interaction_frames), 15) // 1 frame -> 30% chance, 15 frames -> 100% chance
 				// }
-				// Todo, later will devalue damage while at high percent, and instead think about comboing into finishers
+				
+				// var start_lag = this_attack.first_active_frame
+				// var drift_speed = 1 // guessing 1px per frame
+				// var drift_required = sqrt(contacting_hitbox_info.overlap)
+				// var drift_time_required = ceil(drift_required / drift_speed)
+				// var drift_out_chance = max(0, ease_linear(0, 1, start_lag-drift_time_required, 15)) // If they have 0ish frames to drift out-> 0% chance of evastion, 15 frames -> 100% chance
+				// var miss_chance = 1 - (1-chance_of_interferance) * (1-drift_out_chance)
+
+				// // if get_player_damage(ai_target.player) < 100 {
+				// 	var damage_raw = this_attack.hitboxes_array[array_length(this_attack.hitboxes_array)-1].damage * (1-miss_chance)
+				// 	var damage_score = damage_raw * w_damage
+				// 	score += damage_score
+				// // }
+				// // Todo, later will devalue damage while at high percent, and instead think about comboing into finishers
 			
-				var end_lag_raw = max(0, this_attack.full_duration - this_attack.last_active_frame) * miss_chance
-				var end_lag_score = -end_lag_raw * w_end_lag
-				score += end_lag_score
+				
+				// var pratfall_end_lag = this_attack.goes_into_pratfall * 30 // Todo should get from height instead of just guessing.
+				// // Todo shouldnt just be *miss_chance. Even if you hit you want shorter end lag
+				// var end_lag_raw = (max(0, this_attack.full_duration - this_attack.last_active_frame) + pratfall_end_lag)* miss_chance
+				// var end_lag_score = -end_lag_raw * w_end_lag
+				// score += end_lag_score
 
-				var hit_result_info = get_hit_result(contacting_hitbox_info.closest_hitbox, ai_target)
-				var dest_x = hit_result_info.final_position[0]
-				var dest_dist_past_side_blastzone = max(-dest_x, dest_x-room_width)
-				var chance_to_kill_off_side_raw = clamp(dest_dist_past_side_blastzone/8 + 42, 0, 1)  // This includes attacks that leave them near the blastzone but not past it
+				// // Todo, for misses, prefer being further away. Should encourage spacing?
 
-				var dest_dist_above_top_blastzone = hit_result_info.peak_height-room_height
-				if dest_dist_above_top_blastzone > 0 {
-					var chance_to_kill_off_top_raw = 0.25+clamp(0, dest_dist_above_top_blastzone/400, 0.75) //Nothing if less than blastzone, jumps to 25% after for no-di case.
-				}
-				var chance_to_kill_score = (chance_to_kill_off_side_raw+chance_to_kill_off_top_raw) * (1-miss_chance) * w_chance_to_kill
-				score += chance_to_kill_score
-				// Todo add distance below stage level for spikes
+				// var hit_result_info = get_hit_result(contacting_hitbox_info.closest_hitbox, ai_target)
+				// var dest_x = hit_result_info.final_position[0]
+				// var dest_dist_past_side_blastzone = max(-dest_x, dest_x-room_width)
+				// var chance_to_kill_off_side_raw = clamp(dest_dist_past_side_blastzone/8 + 42, 0, 1)  // This includes attacks that leave them near the blastzone but not past it
+
+				// var dest_dist_above_top_blastzone = hit_result_info.peak_height-room_height
+				// if dest_dist_above_top_blastzone > 0 {
+				// 	var chance_to_kill_off_top_raw = 0.25+clamp(0, dest_dist_above_top_blastzone/400, 0.75) //Nothing if less than blastzone, jumps to 25% after for no-di case.
+				// }
+				// var chance_to_kill_score = (chance_to_kill_off_side_raw+chance_to_kill_off_top_raw) * (1-miss_chance) * w_chance_to_kill
+				// score += chance_to_kill_score
+				// // Todo add distance below stage level for spikes
+
+				// // Todo add chance to follow up
 
 				// prints(get_attack_name(attack_i), "dmg", damage_score, "end", end_lag_score, "walks", frames_to_walk, "miss", miss_chance,
 				// 	"kill", chance_to_kill_score,
@@ -196,7 +220,6 @@ if state == PS_HITSTUN {
 				}
 			}
 		}
-		
 		if best_attack != undefined {
 			ai_thoughts = `Using ${get_attack_name(best_attack)}`;		
 			return best_plan
@@ -204,16 +227,24 @@ if state == PS_HITSTUN {
 		if crash_tracing print("End getting attack plan")
 	}
 
-	if state_cat == SC_AIR_NEUTRAL {
-		return [["tap_down"]]
-	} 
-	if !free and state_cat != SC_GROUND_COMMITTED {
-		// This is a weird sort of dash_glide that doesnt put into dash endlag but moves much faster than walking.
-		if xdist > 100 {
-			return [["hold_towards_target", "tap_current_horizontal_direction"], ["hold_towards_target"]]
-		} else {
-			return [["hold_towards_target"]]
+
+	if !free {
+		if state_cat != SC_GROUND_COMMITTED {
+			// This is a weird sort of dash_glide that doesnt put into dash endlag but moves much faster than walking.
+			if xdist > 100 {
+				return [["hold_towards_target", "tap_current_horizontal_direction"], ["hold_towards_target"]]
+			} else {
+				if true {//random_func(0, 2, true) { // TODO make this weighted random
+					return [["press_jump", "hold_towards_target"]]
+				} else {
+					
+					return [["hold_towards_target"]]	
+				}
+			}
 		}
+	} else {
+		return [["hold_towards_target"]]
+		// TODO add fastfalling when appropriate return [["tap_down"]] 
 	}
 
 #define set_plan(new_plan)
@@ -307,24 +338,24 @@ if state == PS_HITSTUN {
 		overlap: 0, // The number of overlapping pixels when precise=false. Else just 1 for hits.
 		hit_scanning_frame: 0, // The frame of the hitbox when it will hit
 		xdist: 9999, // The closest a hitbox gets to contacting
-		ydist: 9999,
+		ydist: 9999
 	}
 
-	for(var hitbox_i = 0; hitbox_i < this_attack.hitboxes_count; hitbox_i++;) {
+	for(var hitbox_i = 0; hitbox_i < this_attack.hitboxes_count; hitbox_i++) {
 		if crash_tracing prints("start hitbox", hitbox_i)
 		var this_hitbox = this_attack.hitboxes_array[hitbox_i];
 
 		var is_contacting = false
 		var scanning_frame = 0 // The frame of the hitbox to check collision
 		var duration = this_hitbox.end_frame - this_hitbox.frame
-		var speed = abs(hsp) + abs(vsp)
+		var combined_speeds = abs(hsp) + abs(vsp) + abs(_target.hsp) + abs(_target.vsp)
+		
+		return hit_info
+		
 		while not is_contacting and scanning_frame < duration {
 			var hit_frame = this_hitbox.frame + scanning_frame
 			var frames_until_hit = hit_frame-frames_into_attack
 			if frames_until_hit >= 0 { // If this point hasn't already happened
-				if frames_into_attack > hit_frame {
-					break // already past this point in the attack
-				}
 				if highest_priority >= this_hitbox.priority && hit_info.hit_frame <= hit_frame{
 					break // currently recorded hit has higher priority and equal or greater speed, overruling this one
 				} 
@@ -334,8 +365,11 @@ if state == PS_HITSTUN {
 				if scanning_frame > 30 {
 					break // Too long...
 				}
+				if frames_into_attack > hit_frame {
+					continue // already past this point in the attack
+				}
 	
-				var attacker_projected_pos = get_my_projected_pos(frames_until_hit);
+				var attacker_projected_pos = [0,0] //get_my_projected_pos(frames_until_hit);
 				var hit_x = attacker_projected_pos[0] + this_hitbox.xpos * spr_dir;
 				var hit_y = attacker_projected_pos[1] + this_hitbox.ypos;
 				var radius_x = this_hitbox.radius_x * this_attack.paranoia;
@@ -343,13 +377,16 @@ if state == PS_HITSTUN {
 	
 				var target_projected_pos = undefined
 				with oPlayer if self == target_player {
-					target_projected_pos = get_my_projected_pos(frames_until_hit)
+					target_projected_pos = [0,0]//get_my_projected_pos(frames_until_hit)
 				}
 				var target_radius_x = (target_hurtbox.bbox_right - target_hurtbox.bbox_left)/2
 				var target_radius_y = (target_hurtbox.bbox_bottom - target_hurtbox.bbox_top)/2
 	
 				overlap_info = amount_of_rectangle_overlap(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y,
 				target_projected_pos[0]-target_radius_x, target_projected_pos[1]-2*target_radius_y, target_projected_pos[0]+target_radius_x, target_projected_pos[1])
+				
+				did_work ++
+				
 				if overlap_info.overlap {
 					is_contacting = true
 					highest_priority = this_hitbox.priority;
@@ -368,12 +405,10 @@ if state == PS_HITSTUN {
 					}
 					hit_info.xdist = min(hit_info.xdist, overlap_info.xdist)
 					hit_info.ydist = min(hit_info.ydist, overlap_info.ydist)
-					
 				}
-			
-				
 			}
-			scanning_frame += max(3, 15/speed) 
+			
+			scanning_frame += max(5, 15/combined_speeds) //max(3, 15/combined_speeds) 
 			//	Possible optimization, could check last frame of hitbox and see if it either contacts or has moved past the opponent on either exis.
 			//		If not, no point in checking other times.
 		}
@@ -409,12 +444,22 @@ if state == PS_HITSTUN {
 
 	// Todo handle stage height
 
+
+
+	// TODO REMOVE
+	// return {
+	// 	hitstun: 0,
+	// 	peak_height: 0,
+	// 	final_position: [0, 0]
+	// }
+
+
 	var upward_knockback = max(0, lengthdir_y(1, hitbox.kb_angle)) * knockback
 
 	var hit_result_info = {
 		hitstun: hitstun,
 		peak_height: peak_height,
-		final_position: [dest_x, dest_y],
+		final_position: [dest_x, dest_y]
 	}
 	return hit_result_info
 
@@ -436,7 +481,7 @@ if state == PS_HITSTUN {
 
 
 
-#define learn
+#define learn()
 	if(learning_frame < 1) return(false);
 	//First, check if we need to move on and study something else
 	switch(learning_phase) {
@@ -522,9 +567,9 @@ if state == PS_HITSTUN {
 		
 		var paranoia = undefined
 		if attacker == self {
-			paranoia = 0.75
+			paranoia = 1//0.85
 		} else {
-			paranoia = 1.2
+			paranoia = 1.15
 		}
 
 		//Prepare basic stuff
@@ -541,11 +586,15 @@ if state == PS_HITSTUN {
 			full_duration: 0,
 			max_x_reach: 0,
 			max_upward_reach: 0,
+			goes_into_pratfall: false
 		};
 		
 		var windows_count = get_attack_value(study_index, AG_NUM_WINDOWS);
 		for (var window_i=1; window_i<windows_count+1; window_i++) {
 			other.known_attacks[@attacker.player][@study_index].full_duration += get_window_value(study_index, window_i, AG_WINDOW_LENGTH)
+			if get_window_value(study_index, window_i, AG_WINDOW_TYPE) == 7 {
+				other.known_attacks[@attacker.player][study_index].goes_into_pratfall = true
+			}
 		}
 		
 		//Prepare hitboxes array
@@ -701,7 +750,7 @@ if state == PS_HITSTUN {
 	var last_projected_pos = [x, y]
 	var projected_hsp = hsp
 	var projected_vsp = vsp
-	for var time_i=0; time_i<maximum_projected_movement_frames; time_i++ {
+	for (var time_i=0; time_i<maximum_projected_movement_frames; time_i++) {
 		if(state == PS_WAVELAND) {
 			remaining_waveland--;
 			if(remaining_waveland <= 0){
@@ -793,6 +842,12 @@ if state == PS_HITSTUN {
 	unpress_up()
 	unpress_down()
 
+#define hold_neutral_stick
+	unpress_stick_left()
+	unpress_stick_right()
+	unpress_stick_up()
+	unpress_stick_down()
+
 #define hold_toward_center
 	var center_dir = -sign(x - room_width / 2);
 	hold_toward_direction(center_dir)
@@ -836,6 +891,22 @@ if state == PS_HITSTUN {
 	down_strong_down = false
 	down_strong_pressed = false
 	
+#define unpress_stick_left()
+	left_stick_down = false
+	left_stick_pressed = false
+
+#define unpress_stick_right()
+	right_stick_down = false
+	right_stick_pressed = false
+
+#define unpress_stick_up()
+	up_stick_down = false
+	up_stick_pressed = false
+
+#define unpress_stick_down()
+	down_stick_down = false
+	down_stick_pressed = false
+
 #define press_left()
 	left_down = true
 	left_pressed = true
@@ -845,6 +916,11 @@ if state == PS_HITSTUN {
 	press_left()
 	left_hard_down = true
 	left_hard_pressed = true
+
+#define tap_stick_left()
+	left_stick_down = true
+	left_stick_pressed = true
+	unpress_stick_right()
 
 #define press_right()
 	right_down = true
@@ -856,6 +932,11 @@ if state == PS_HITSTUN {
 	right_hard_down = true
 	right_hard_pressed = true
 
+#define tap_stick_right()
+	right_stick_down = true
+	right_stick_pressed = true
+	unpress_stick_left()
+	
 #define press_up()
 	up_down = true
 	up_pressed = true
@@ -866,6 +947,11 @@ if state == PS_HITSTUN {
 	up_hard_down = true
 	up_hard_pressed = true
 
+#define tap_stick_up()
+	up_stick_down = true
+	up_stick_pressed = true
+	unpress_stick_down()
+
 #define press_down()
   	down_down = true
   	down_pressed = true
@@ -875,6 +961,11 @@ if state == PS_HITSTUN {
 	press_down()
 	down_hard_down = true
 	down_hard_pressed = true
+
+#define tap_stick_down()
+	down_stick_down = true
+	down_stick_pressed = true
+	unpress_stick_up()
 
 #define unpress_actions
 	attack_down = false
@@ -958,115 +1049,116 @@ if state == PS_HITSTUN {
 	}
 #endregion
 
-#define perform_attack(_attack)
-	switch _attack {
-		case AT_JAB:	
-			press_attack()
-		break
-		case AT_DATTACK:
-			hold_neutral()
-			hold_towards_target()
-			tap_current_horizontal_direction()
-			press_attack()
-		break
-		case AT_NSPECIAL:
-			hold_neutral()
-			press_special()
-		break
-		case AT_FSPECIAL:
-		case AT_FSPECIAL_2:
-		case AT_FSPECIAL_AIR:
-			hold_neutral()
-			hold_towards_target();
-			press_special()
-		break
-		case AT_USPECIAL:
-			hold_neutral()
-			hold_towards_target()
-		break
-		case AT_DSPECIAL:
-		case AT_DSPECIAL_2:
-		case AT_DSPECIAL_AIR:
-			tap_down()
-			hold_towards_target()
-			press_special()
-		break
-		case AT_FSTRONG:
-			hold_neutral()
-			hold_towards_target()
-			press_strong()
-		case AT_USTRONG:
-			press_up()
-			hold_towards_target()
-			press_strong()
-		break
-		case AT_DSTRONG:
-			press_down()
-			hold_towards_target()
-			press_strong()
-		break
-		case AT_FTILT:
-			hold_neutral()
-			hold_towards_target()
-			press_attack()
-		break
-		case AT_UTILT:
-			press_up()
-			hold_towards_target()
-			press_attack()
-		break
-		case AT_DTILT:
-			press_down()
-			hold_towards_target()
-			press_attack()
-		break
-		case AT_NAIR:
-			hold_neutral()
-			press_attack()
-			if !free { 
-				// Todo, if hitbox too low, jump
-				jump_down = (y <= ai_target.y - ai_target.char_height); 
-				jump_pressed = jump_down
-				down_hard_pressed = (y > ai_target.y)
-			} 
-			break
-		case AT_FAIR:
-			hold_neutral()
-			hold_forwards()
-			press_attack()
-			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); } 
-		break
-		case AT_DAIR:
-			press_down()
-			hold_towards_target()
-			press_attack()
-			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); } 
-		break
-		case AT_UAIR:
-			press_up()
-			hold_towards_target()
-			press_attack()
-			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); } 
-		break
-		case AT_BAIR:
-			hold_neutral()
-			hold_backwards()
-			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); } 
-			// if (!free) { 
-			// 	press_jump() 
-			// 	hold_away_from_target()
-			// 	epinel_ai_buffer_hold_jump = max(epinel_ai_buffer_hold_jump, 2); 
-			// } else {  
-			// 	press_attack()
-			// 	jump_down = (!free || (y <= ai_target.y - ai_target.char_height)); 
-			// 	jump_pressed = jump_down; 
-			// 	down_hard_pressed = (y > ai_target.y); 
-			// } 
-		break
-		case AT_TAUNT:
-			taunt_down = true;
-		break
-	}
+
+// #define perform_attack(_attack)
+// 	switch _attack {
+// 		case AT_JAB:	
+// 			press_attack()
+// 		break
+// 		case AT_DATTACK:
+// 			hold_neutral()
+// 			hold_towards_target()
+// 			tap_current_horizontal_direction()
+// 			press_attack()
+// 		break
+// 		case AT_NSPECIAL:
+// 			hold_neutral()
+// 			press_special()
+// 		break
+// 		case AT_FSPECIAL:
+// 		case AT_FSPECIAL_2:
+// 		case AT_FSPECIAL_AIR:
+// 			hold_neutral()
+// 			hold_towards_target();
+// 			press_special()
+// 		break
+// 		case AT_USPECIAL:
+// 			hold_neutral()
+// 			hold_towards_target()
+// 		break
+// 		case AT_DSPECIAL:
+// 		case AT_DSPECIAL_2:
+// 		case AT_DSPECIAL_AIR:
+// 			tap_down()
+// 			hold_towards_target()
+// 			press_special()
+// 		break
+// 		case AT_FSTRONG:
+// 			hold_neutral()
+// 			hold_towards_target()
+// 			press_strong()
+// 		case AT_USTRONG:
+// 			press_up()
+// 			hold_towards_target()
+// 			press_strong()
+// 		break
+// 		case AT_DSTRONG:
+// 			press_down()
+// 			hold_towards_target()
+// 			press_strong()
+// 		break
+// 		case AT_FTILT:
+// 			hold_neutral()
+// 			hold_towards_target()
+// 			press_attack()
+// 		break
+// 		case AT_UTILT:
+// 			press_up()
+// 			hold_towards_target()
+// 			press_attack()
+// 		break
+// 		case AT_DTILT:
+// 			press_down()
+// 			hold_towards_target()
+// 			press_attack()
+// 		break
+// 		case AT_NAIR:
+// 			hold_neutral()
+// 			press_attack()
+// 			if !free { 
+// 				// Todo, if hitbox too low, jump
+// 				jump_down = (y <= ai_target.y - ai_target.char_height); 
+// 				jump_pressed = jump_down
+// 				down_hard_pressed = (y > ai_target.y)
+// 			} 
+// 			break
+// 		case AT_FAIR:
+// 			hold_neutral()
+// 			hold_forwards()
+// 			press_attack()
+// 			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); } 
+// 		break
+// 		case AT_DAIR:
+// 			press_down()
+// 			hold_towards_target()
+// 			press_attack()
+// 			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); } 
+// 		break
+// 		case AT_UAIR:
+// 			press_up()
+// 			hold_towards_target()
+// 			press_attack()
+// 			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); } 
+// 		break
+// 		case AT_BAIR:
+// 			hold_neutral()
+// 			hold_backwards()
+// 			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); } 
+// 			// if (!free) { 
+// 			// 	press_jump() 
+// 			// 	hold_away_from_target()
+// 			// 	epinel_ai_buffer_hold_jump = max(epinel_ai_buffer_hold_jump, 2); 
+// 			// } else {  
+// 			// 	press_attack()
+// 			// 	jump_down = (!free || (y <= ai_target.y - ai_target.char_height)); 
+// 			// 	jump_pressed = jump_down; 
+// 			// 	down_hard_pressed = (y > ai_target.y); 
+// 			// } 
+// 		break
+// 		case AT_TAUNT:
+// 			taunt_down = true;
+// 		break
+// 	}
 	
 	
 	
@@ -1124,7 +1216,6 @@ if state == PS_HITSTUN {
 		case AT_DATTACK:
 			return [["hold_neutral", "hold_towards_target", "tap_current_horizontal_direction",
 			"press_attack"]]
-			
 		break
 		case AT_NSPECIAL:
 			return[["hold_neutral", "press_special"]]
@@ -1159,6 +1250,22 @@ if state == PS_HITSTUN {
 		case AT_DTILT:
 			return[["press_down", "hold_towards_target", "press_attack"]]
 		break
+		case AT_NAIR:
+			return[["hold_neutral", "press_attack"]]
+		break
+		case AT_UAIR:
+			return[["hold_towards_target", "tap_stick_up"]]
+		break
+		case AT_DAIR:
+			return[["hold_towards_target", "tap_stick_down"]]
+		break
+		case AT_FAIR:
+			return[["hold_towards_target", "tap_stick_forwards"]]
+		break
+		case AT_BAIR:
+			return[["hold_towards_target", "tap_stick_backwards"]]
+		break
+		
 		default:
 			// print(`rejecting currently unsupported attack ${get_attack_name(_attack)}`)
 			return undefined
@@ -1189,24 +1296,24 @@ if state == PS_HITSTUN {
         }
     }
 
+//TODO put back
 #define amount_of_rectangle_overlap(left1, top1, right1, bottom1, left2, top2, right2, bottom2)
-// #define rectangle_in_rectangle(left1, top1, right1, bottom1, left2, top2, right2, bottom2)
-	var intersect_left = max(left1, left2)
-	var intersect_right = min(right1, right2)
+	// var intersect_left = max(left1, left2)
+	// var intersect_right = min(right1, right2)
 
-	var intersect_top = max(top1, top2)
-	var intersect_bottom = min(bottom1, bottom2)
-	if intersect_right < intersect_left or intersect_bottom < intersect_top {
-		return {
-			overlap: 0,
-			xdist: max(0, intersect_left - intersect_right),
-			ydist: max(0, intersect_top - intersect_bottom),
-		}
-	}
+	// var intersect_top = max(top1, top2)
+	// var intersect_bottom = min(bottom1, bottom2)
+	// if intersect_right < intersect_left or intersect_bottom < intersect_top {
+	// 	return {
+	// 		overlap: 0,
+	// 		xdist: max(0, intersect_left - intersect_right),
+	// 		ydist: max(0, intersect_top - intersect_bottom),
+	// 	}
+	// }
 
-	var overlap = (intersect_left-intersect_right) * (intersect_top-intersect_bottom)
+	// var overlap = (intersect_left-intersect_right) * (intersect_top-intersect_bottom)
 	return {
-		overlap: overlap,
+		overlap: 0,//overlap,
 		xdist: 0,
 		ydist: 0,
 	}
@@ -1218,7 +1325,7 @@ if state == PS_HITSTUN {
     }
     return new_arr;
 
-// vvv LIBRARY DEFINES AND MACROS vvv
+// #region vvv LIBRARY DEFINES AND MACROS vvv
 // DANGER File below this point will be overwritten! Generated defines and macros below.
 // Write NO-INJECT in a comment above this area to disable injection.
 #define prints // Version 0
@@ -1229,4 +1336,31 @@ if state == PS_HITSTUN {
         _out_string += string(argument[i])
     }
     print(_out_string)
+
+#define list // Version 0
+    // / list(?array = undefined)
+    var array = argument_count > 0 ? argument[0] : undefined;
+    // Convert the array to a list
+        if array == undefined {
+            array = []
+        }
+        var size = array_length(array)
+        var array = _list_reallocate_array(array, size)
+        return {
+            size:size,
+            a:array
+        }
+
+#define _list_reallocate_array(array, size) // Version 0
+    // Allocates space for the array with some extra padding
+    if size < 9 {
+        var padding = 3
+    } else {
+        var padding = 6
+    }
+    var alloc_size = size + (size >> 3) + padding
+    var new_array = array_create(alloc_size, undefined)
+    array_copy(new_array, 0, array, 0, alloc_size)
+    return new_array
 // DANGER: Write your code ABOVE the LIBRARY DEFINES AND MACROS header or it will be overwritten!
+// #endregion

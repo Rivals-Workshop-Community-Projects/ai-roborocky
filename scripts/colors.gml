@@ -13,14 +13,14 @@ set_color_profile_slot( 0, 2, 240, 239, 251 );
 set_color_profile_slot_range( 2, 1, 1, 1 );
 
 // band blue
-set_color_profile_slot( 0, 3, 128, 182, 238 );
+set_color_profile_slot( 0, 3, 128, 182, 238 );   
 set_color_profile_slot_range( 3, 1, 1, 1 );
 
 // eye white
 set_color_profile_slot( 0, 4, 255, 255, 255 );
-set_color_profile_slot_range( 4, 1, 1, 1 );
+set_color_profile_slot_range( 4, 1, 1, 1 );      
 
-// eye blue
+// eye blue 
 set_color_profile_slot( 0, 5, 19, 11, 109 );
 set_color_profile_slot_range( 5, 1, 1, 1 );
 
