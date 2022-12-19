@@ -1,4 +1,6 @@
+exit
 if(!is_ai) exit;
+
 with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
 	var projected_pos = get_my_projected_pos(8)
 	draw_sprite_ext(sprite_index, image_index, projected_pos[0], projected_pos[1], spr_dir, 1, 0, c_lime, get_gameplay_time() % 2 == 0?0.6:0.7)
@@ -159,3 +161,24 @@ with(oPlayer) if(get_player_team(player) != get_player_team(other.player)) {
 	}
 	time = floor(clamp(time, 0, maximum_projected_movement_frames-1))
 	return proj_pos_cache[time]
+
+// vvv LIBRARY DEFINES AND MACROS vvv
+// DANGER File below this point will be overwritten! Generated defines and macros below.
+// Write NO-INJECT in a comment above this area to disable injection.
+#define is_draw_script // Version 0
+    // todo this should be cached.
+    var script_name = script_get_name(1)
+    var contains_draw = string_pos("draw", script_name) != 0
+    return contains_draw or script_name == "init_shader"
+
+#define _get_local_seed // Version 0
+    return _get_seed_from_seed_name("_local_rand_counter")
+
+#define _get_seed_from_seed_name(seed_name) // Version 0
+    var seed =  variable_instance_get(self, seed_name, 0)
+    variable_instance_set(self, seed_name, seed+1)
+    return seed
+
+#define _get_synced_seed // Version 0
+    return _get_seed_from_seed_name("_synced_rand_counter")
+// DANGER: Write your code ABOVE the LIBRARY DEFINES AND MACROS header or it will be overwritten!

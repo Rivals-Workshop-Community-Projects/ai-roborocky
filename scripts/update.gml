@@ -17,7 +17,6 @@
 //    }
 //}
 
-
 //star cooldown stuff
 if (star_cooldown > 0){
 	star_cooldown--;
