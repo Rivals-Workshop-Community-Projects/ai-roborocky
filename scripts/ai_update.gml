@@ -6,7 +6,7 @@ if hitpause{
 with oPlayer {
 	crash_tracing = false
 	arc_height = get_peak_height(upward_velocity, gravity_speed)
-	
+
 	did_work = 0
 }
 
@@ -36,7 +36,7 @@ if not is_above_ground {
 
 	var has_existing_plan = do_plan() // If already doing a plan, dont even think, just do the steps. Possibly a bad idea.
 	if not has_existing_plan {
-		var new_plan = get_plan()		
+		var new_plan = get_plan()
 		set_plan(new_plan)
 		do_plan()
 	}
@@ -122,7 +122,7 @@ prints("Did work",get_gameplay_time(), player, did_work)
 				}
 
 				// Rough heuristic to throw away obviously unsafe attacks
-				var interaction_frames = get_attack_interaction_frames(this_attack) 
+				var interaction_frames = get_attack_interaction_frames(this_attack)
 				if interaction_frames > maximum_safe_reaction_frames {
 					continue // Too slow, discard it.
 				}
@@ -180,7 +180,7 @@ prints("Did work",get_gameplay_time(), player, did_work)
 				// // }
 				// // Todo, later will devalue damage while at high percent, and instead think about comboing into finishers
 			
-				
+
 				// var pratfall_end_lag = this_attack.goes_into_pratfall * 30 // Todo should get from height instead of just guessing.
 				// // Todo shouldnt just be *miss_chance. Even if you hit you want shorter end lag
 				// var end_lag_raw = (max(0, this_attack.full_duration - this_attack.last_active_frame) + pratfall_end_lag)* miss_chance
@@ -231,14 +231,14 @@ prints("Did work",get_gameplay_time(), player, did_work)
 				if true {//random_func(0, 2, true) { // TODO make this weighted random
 					return [["press_jump", "hold_towards_target"]]
 				} else {
-					
-					return [["hold_towards_target"]]	
+
+					return [["hold_towards_target"]]
 				}
 			}
 		}
 	} else {
 		return [["hold_towards_target"]]
-		// TODO add fastfalling when appropriate return [["tap_down"]] 
+		// TODO add fastfalling when appropriate return [["tap_down"]]
 	}
 
 #define set_plan(new_plan)
@@ -343,9 +343,9 @@ prints("Did work",get_gameplay_time(), player, did_work)
 		var scanning_frame = 0 // The frame of the hitbox to check collision
 		var duration = this_hitbox.end_frame - this_hitbox.frame
 		var combined_speeds = abs(hsp) + abs(vsp) + abs(_target.hsp) + abs(_target.vsp)
-		
+
 		return hit_info
-		
+
 		while not is_contacting and scanning_frame < duration {
 			var hit_frame = this_hitbox.frame + scanning_frame
 			var frames_until_hit = hit_frame-frames_into_attack
@@ -362,7 +362,7 @@ prints("Did work",get_gameplay_time(), player, did_work)
 				if frames_into_attack > hit_frame {
 					continue // already past this point in the attack
 				}
-	
+
 				var attacker_projected_pos = [0,0] //get_my_projected_pos(frames_until_hit);
 				var hit_x = attacker_projected_pos[0] + this_hitbox.xpos * spr_dir;
 				var hit_y = attacker_projected_pos[1] + this_hitbox.ypos;
@@ -378,9 +378,9 @@ prints("Did work",get_gameplay_time(), player, did_work)
 	
 				overlap_info = amount_of_rectangle_overlap(hit_x - radius_x, hit_y - radius_y, hit_x + radius_x, hit_y + radius_y,
 				target_projected_pos[0]-target_radius_x, target_projected_pos[1]-2*target_radius_y, target_projected_pos[0]+target_radius_x, target_projected_pos[1])
-				
+
 				did_work ++
-				
+
 				if overlap_info.overlap {
 					is_contacting = true
 					highest_priority = this_hitbox.priority;
@@ -401,8 +401,8 @@ prints("Did work",get_gameplay_time(), player, did_work)
 					hit_info.ydist = min(hit_info.ydist, overlap_info.ydist)
 				}
 			}
-			
-			scanning_frame += max(5, 15/combined_speeds) //max(3, 15/combined_speeds) 
+
+			scanning_frame += max(5, 15/combined_speeds) //max(3, 15/combined_speeds)
 			//	Possible optimization, could check last frame of hitbox and see if it either contacts or has moved past the opponent on either exis.
 			//		If not, no point in checking other times.
 		}
@@ -930,7 +930,7 @@ prints("Did work",get_gameplay_time(), player, did_work)
 	right_stick_down = true
 	right_stick_pressed = true
 	unpress_stick_left()
-	
+
 #define press_up()
 	up_down = true
 	up_pressed = true
@@ -1046,7 +1046,7 @@ prints("Did work",get_gameplay_time(), player, did_work)
 
 // #define perform_attack(_attack)
 // 	switch _attack {
-// 		case AT_JAB:	
+// 		case AT_JAB:
 // 			press_attack()
 // 		break
 // 		case AT_DATTACK:
@@ -1109,45 +1109,45 @@ prints("Did work",get_gameplay_time(), player, did_work)
 // 		case AT_NAIR:
 // 			hold_neutral()
 // 			press_attack()
-// 			if !free { 
+// 			if !free {
 // 				// Todo, if hitbox too low, jump
-// 				jump_down = (y <= ai_target.y - ai_target.char_height); 
+// 				jump_down = (y <= ai_target.y - ai_target.char_height);
 // 				jump_pressed = jump_down
 // 				down_hard_pressed = (y > ai_target.y)
-// 			} 
+// 			}
 // 			break
 // 		case AT_FAIR:
 // 			hold_neutral()
 // 			hold_forwards()
 // 			press_attack()
-// 			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); } 
+// 			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); }
 // 		break
 // 		case AT_DAIR:
 // 			press_down()
 // 			hold_towards_target()
 // 			press_attack()
-// 			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); } 
+// 			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); }
 // 		break
 // 		case AT_UAIR:
 // 			press_up()
 // 			hold_towards_target()
 // 			press_attack()
-// 			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); } 
+// 			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); }
 // 		break
 // 		case AT_BAIR:
 // 			hold_neutral()
 // 			hold_backwards()
-// 			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); } 
-// 			// if (!free) { 
-// 			// 	press_jump() 
+// 			if (!free) { jump_down = (y <= ai_target.y - ai_target.char_height); jump_pressed = jump_down; down_hard_pressed = (y > ai_target.y); }
+// 			// if (!free) {
+// 			// 	press_jump()
 // 			// 	hold_away_from_target()
-// 			// 	epinel_ai_buffer_hold_jump = max(epinel_ai_buffer_hold_jump, 2); 
-// 			// } else {  
+// 			// 	epinel_ai_buffer_hold_jump = max(epinel_ai_buffer_hold_jump, 2);
+// 			// } else {
 // 			// 	press_attack()
-// 			// 	jump_down = (!free || (y <= ai_target.y - ai_target.char_height)); 
-// 			// 	jump_pressed = jump_down; 
-// 			// 	down_hard_pressed = (y > ai_target.y); 
-// 			// } 
+// 			// 	jump_down = (!free || (y <= ai_target.y - ai_target.char_height));
+// 			// 	jump_pressed = jump_down;
+// 			// 	down_hard_pressed = (y > ai_target.y);
+// 			// }
 // 		break
 // 		case AT_TAUNT:
 // 			taunt_down = true;
@@ -1259,7 +1259,7 @@ prints("Did work",get_gameplay_time(), player, did_work)
 		case AT_BAIR:
 			return[["hold_towards_target", "tap_stick_backwards"]]
 		break
-		
+
 		default:
 			// print(`rejecting currently unsupported attack ${get_attack_name(_attack)}`)
 			return undefined
@@ -1319,7 +1319,7 @@ prints("Did work",get_gameplay_time(), player, did_work)
     }
     return new_arr;
 
-// vvv LIBRARY DEFINES AND MACROS vvv
+// #region vvv LIBRARY DEFINES AND MACROS vvv
 // DANGER File below this point will be overwritten! Generated defines and macros below.
 // Write NO-INJECT in a comment above this area to disable injection.
 #define prints // Version 0
@@ -1427,3 +1427,4 @@ prints("Did work",get_gameplay_time(), player, did_work)
 #define _rand_up_to(stop) // Version 0
     return floor(random()*(stop+1))
 // DANGER: Write your code ABOVE the LIBRARY DEFINES AND MACROS header or it will be overwritten!
+// #endregion

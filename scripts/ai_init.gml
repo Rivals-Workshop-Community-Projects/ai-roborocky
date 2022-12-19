@@ -1,6 +1,6 @@
 is_ai = true
 
-#region Floral learning
+#region Floral learning 
 
 learning_frame = 0; allowed_learning_time = 125;
 currently_learning = true;
